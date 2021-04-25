@@ -1,4 +1,5 @@
 import logging
+import shutil
 import sys
 import tkinter as tk
 import tkinter.messagebox as messagebox
@@ -9,6 +10,7 @@ from pathlib import Path
 
 from natsort import natsorted
 from PIL import Image, ImageTk
+from send2trash import send2trash
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -52,20 +54,19 @@ class ArchiveBase:
     def __len__(self):
         return len(self.file_list)
 
-    def nexti(self):
-        return min(self.i + 1, len(self) - 1)
-
-    def previ(self):
-        return max(self.i - 1, 0)
-
     def next(self):
-        pass
+        self.i = min(self.i + 1, len(self) - 1)
+        return self[self.i]
 
     def prev(self):
-        pass
+        self.i = max(self.i - 1, 0)
+        return self[self.i]
 
     def current(self):
         return self.i
+
+    def delete(self):
+        pass
 
 
 class ZipArchive(ArchiveBase):
@@ -96,13 +97,9 @@ class ZipArchive(ArchiveBase):
         logger.debug(file_name)
         return file_name, file_byte
 
-    def next(self):
-        self.i = self.nexti()
-        return self[self.i]
-
-    def prev(self):
-        self.i = self.previ()
-        return self[self.i]
+    def delete(self):
+        if self.file_path is not None:
+            send2trash(self.file_path)
 
 
 class DirectoryArchive(ArchiveBase):
@@ -126,13 +123,8 @@ class DirectoryArchive(ArchiveBase):
         else:
             return "", None
 
-    def next(self):
-        self.i = self.nexti()
-        return self[self.i]
-
-    def prev(self):
-        self.i = self.previ()
-        return self[self.i]
+    def delete(self):
+        send2trash(self.file_list[self.i])
 
 
 class ImageFrame(tk.Canvas):
@@ -207,9 +199,18 @@ class ArchiveImageViewer(tk.Tk):
         binding = {
             "l": self.prev_page,
             "h": self.next_page,
+            "q": self.quit,
         }
         for k, v in binding.items():
             self.bind(f"<KeyPress-{k}>", v)
+
+        self.bind(f"<Delete>", self.delete)
+
+    def delete(self, event):
+        if messagebox.askokcancel("Delete file?", "Delete file?"):
+            print("Deleted.")
+        else:
+            print("Cancelled")
 
     def next_page(self, event):
         file_path, data = self.archive.next()
@@ -225,6 +226,9 @@ class ArchiveImageViewer(tk.Tk):
             return
         logger.debug(file_path)
         self.open_file(file_path, data)
+
+    def quit(self, event):
+        self.destroy()
 
     def open(self, file_path):
         self.archive = self.open_archive(file_path)
