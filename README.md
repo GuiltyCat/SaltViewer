@@ -26,3 +26,4 @@ Requirements
 
 - natsort
 - pillow
+ send2trash
