@@ -13,17 +13,34 @@ Why
 Purpose
 ------------
 
-- Pure python.
+- Pure python
+- Single file
 - Support archive
 	- Zip
 - Support image
-	- pillow
+	- obey pillow
+- Support dual page mode
 - Support GIF animation(Yet)
-- Delete image
+- Delete image(Yet)
 
 Requirements
 ----------
 
+My envirionment is `python3.9.3`. However it will work on old version of `python`.
+
 - natsort
 - pillow
- send2trash
+- send2trash
+
+```
+pip install natsort pillow send2trash
+```
+
+How to use
+-----------
+
+```
+python archived_image_viewer.py <image file | zip file>
+```
+
+
