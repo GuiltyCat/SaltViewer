@@ -1,6 +1,5 @@
 import csv
 import logging
-import shutil
 import sys
 import tkinter as tk
 import tkinter.messagebox as messagebox
@@ -134,11 +133,11 @@ class ImageFrame(tk.Canvas):
         self.master = master
         self.item = None
 
-        self.orig_image = None
-        self.orig_image2 = None
+        self.image = None
+        self.image2 = None
 
         self.master.bind(
-            "<Configure>", lambda *kw: self.display(self.orig_image, self.orig_image2)
+            "<Configure>", lambda *kw: self.display(self.image, self.image2)
         )
         self.mode = "FitInFrame"
 
@@ -160,42 +159,47 @@ class ImageFrame(tk.Canvas):
         width = self.width()
         height = self.height()
 
-        self.image = Image.new("RGB", (width, height))
+        new_image = Image.new("RGB", (width, height))
         if right2left:
             image, image2 = image2, image
 
         # left
         left = int(width / 2 - image.width)
         upper = int((height - image.height) / 2)
-        self.image.paste(image, (left, upper))
+        new_image.paste(image, (left, upper))
         # right
         left = int(width / 2)
         upper = int((height - image2.height) / 2)
-        self.image.paste(image2, (left, upper))
-        return self.image
+        new_image.paste(image2, (left, upper))
+        return new_image
 
     def display(self, image, image2=None, right2left=True):
-        self.orig_image = image
-        self.orig_image2 = image2
+        self.image = image
+        self.image2 = image2
         if image is not None:
             div = 1 if image2 is None else 2
             image = self.resize_image(image, div)
             image2 = self.resize_image(image2, div)
 
-            self.image = self.merge_image(image, image2, right2left)
-            self.image = ImageTk.PhotoImage(image=self.image)
+            new_image = self.merge_image(image, image2, right2left)
+            self.tk_image = ImageTk.PhotoImage(image=new_image)
             if self.item is not None:
                 self.delete(self.item)
-            self.configure(width=self.image.width(), height=self.image.height())
-            sx, sy = self.center_shift(self.image.width(), self.image.height())
+
+            width = self.tk_image.width()
+            height = self.tk_image.height()
+            self.configure(width=width, height=height)
+            sx, sy = self.center_shift(width, height)
         else:
-            self.image = None
+            self.tk_image = None
             sx = 0
             sy = 0
-        self.item = self.create_image(sx, sy, image=self.image, anchor="nw")
+        self.item = self.create_image(sx, sy, image=self.tk_image, anchor="nw")
 
     def center_shift(self, image_width, image_height):
-        return (self.width() - image_width) / 2, (self.height() - image_height) / 2
+        sx = (self.width() - image_width) / 2
+        sy = (self.height() - image_height) / 2
+        return sx, sy
 
     def width(self):
         return self.master.winfo_width()
@@ -208,7 +212,9 @@ class ImageFrame(tk.Canvas):
         height = self.height()
         logger.debug(f"{width}, {height}")
         times = min(width / image.width, height / image.height)
-        return image.resize((int(image.width * times), int(image.height * times)))
+
+        size = (int(image.width * times), int(image.height * times))
+        return image.resize(size)
 
 
 class ArchiveImageViewer(tk.Tk):
