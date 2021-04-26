@@ -1,3 +1,4 @@
+import csv
 import logging
 import shutil
 import sys
@@ -63,7 +64,7 @@ class ArchiveBase:
         return self[self.i]
 
     def current(self):
-        return self.i
+        return self[self.i]
 
     def delete(self):
         pass
@@ -129,37 +130,68 @@ class DirectoryArchive(ArchiveBase):
 
 class ImageFrame(tk.Canvas):
     def __init__(self, master):
-        super().__init__(master, highlightthickness=0)
+        super().__init__(master, highlightthickness=0, bg="black")
         self.master = master
         self.item = None
 
-        self.master.bind("<Configure>", lambda *kw: self.display(self.orig_image))
+        self.orig_image = None
+        self.orig_image2 = None
+
+        self.master.bind(
+            "<Configure>", lambda *kw: self.display(self.orig_image, self.orig_image2)
+        )
         self.mode = "FitInFrame"
 
-    def resize_image(self, **kw):
-        image = self.orig_image
+    def resize_image(self, image, div=1):
+        if image is None:
+            return None
         if self.mode == "Raw":
             return image
         elif self.mode == "FitInFrame":
             logger.debug("FitInFrame")
-            return self.fit_in_frame(image)
+            return self.fit_in_frame(image, div)
         else:
             logger.debug("Not supported")
 
-    def display(self, image):
-        if image is not None:
-            self.orig_image = image
-            image = self.resize_image()
+    def merge_image(self, image, image2, right2left):
+        if image is None or image2 is None:
+            return image
 
-            self.image = ImageTk.PhotoImage(image=image)
+        width = self.width()
+        height = self.height()
+
+        self.image = Image.new("RGB", (width, height))
+        if right2left:
+            image, image2 = image2, image
+
+        # left
+        left = int(width / 2 - image.width)
+        upper = int((height - image.height) / 2)
+        self.image.paste(image, (left, upper))
+        # right
+        left = int(width / 2)
+        upper = int((height - image2.height) / 2)
+        self.image.paste(image2, (left, upper))
+        return self.image
+
+    def display(self, image, image2=None, right2left=True):
+        self.orig_image = image
+        self.orig_image2 = image2
+        if image is not None:
+            div = 1 if image2 is None else 2
+            image = self.resize_image(image, div)
+            image2 = self.resize_image(image2, div)
+
+            self.image = self.merge_image(image, image2, right2left)
+            self.image = ImageTk.PhotoImage(image=self.image)
             if self.item is not None:
                 self.delete(self.item)
             self.configure(width=self.image.width(), height=self.image.height())
             sx, sy = self.center_shift(self.image.width(), self.image.height())
         else:
             self.image = None
-            sx=0
-            sy=0
+            sx = 0
+            sy = 0
         self.item = self.create_image(sx, sy, image=self.image, anchor="nw")
 
     def center_shift(self, image_width, image_height):
@@ -171,8 +203,8 @@ class ImageFrame(tk.Canvas):
     def height(self):
         return self.master.winfo_height()
 
-    def fit_in_frame(self, image):
-        width = self.width()
+    def fit_in_frame(self, image, div=1):
+        width = self.width() / div
         height = self.height()
         logger.debug(f"{width}, {height}")
         times = min(width / image.width, height / image.height)
@@ -187,13 +219,16 @@ class ArchiveImageViewer(tk.Tk):
         self.construct_gui()
         self.keybinding()
 
-    def construct_gui(self):
-        main_frame = ttk.Frame(self)
-        main_frame.pack(expand=True, fill="both", anchor="center")
-        main_frame.grid_rowconfigure([0], weight=1)
-        main_frame.grid_columnconfigure([0], weight=1)
+        self.double_page = False
+        self.right2left = True
 
-        self.image = ImageFrame(main_frame)
+    def construct_gui(self):
+        self.main_frame = ttk.Frame(self)
+        self.main_frame.pack(expand=True, fill="both", anchor="center")
+        self.main_frame.grid_rowconfigure([0], weight=1)
+        self.main_frame.grid_columnconfigure([0], weight=1)
+
+        self.image = ImageFrame(self.main_frame)
         self.image.grid(row=0, column=0, sticky="wens")
 
         dummy_img = Image.new("RGB", (10, 10), color="black")
@@ -204,12 +239,14 @@ class ArchiveImageViewer(tk.Tk):
         binding = {
             "l": self.prev_page,
             "h": self.next_page,
+            "d": self.toggle_page_mode,
+            "o": self.toggle_order,
             "q": self.quit,
         }
         for k, v in binding.items():
             self.bind(f"<KeyPress-{k}>", v)
 
-        self.bind(f"<Delete>", self.delete)
+        self.bind("<Delete>", self.delete)
 
     def delete(self, event):
         if messagebox.askokcancel("Delete file?", "Delete file?"):
@@ -217,28 +254,71 @@ class ArchiveImageViewer(tk.Tk):
         else:
             print("Cancelled")
 
-    def next_page(self, event):
+    def toggle_page_mode(self, event):
+        self.double_page = not self.double_page
+        logger.debug(f"DoublePage:{self.double_page}")
+        self.current_page()
+
+    def toggle_order(self, event):
+        logger.debug("toggle order")
+        self.right2left = not self.right2left
+
+    def current_page(self):
+        file_path, data = self.archive.current()
+        if file_path == "":
+            logger.debug("file_path is empty")
+            return None
+        image = self.open_file(file_path, data)
+        image2 = None
+        if self.double_page:
+            image2 = self._open_next()
+            # back to current
+            self.archive.prev()
+        self.image.display(image, image2, self.right2left)
+
+    def _open_next(self):
         file_path, data = self.archive.next()
         if file_path == "":
             logger.debug("file_path is empty")
-            return
-        self.open_file(file_path, data)
+            return None
+        return self.open_file(file_path, data)
 
-    def prev_page(self, event):
+    def next_page(self, event):
+        logger.debug("called")
+
+        # back to the second page then next
+        self.archive.next()
+        image = self._open_next()
+        image2 = None
+        if self.double_page:
+            image2 = self._open_next()
+            # in order to set index as first page
+            self.archive.prev()
+        self.image.display(image, image2, self.right2left)
+
+    def _open_prev(self):
         file_path, data = self.archive.prev()
         if file_path == "":
             logger.debug("file_path is empty")
-            return
-        logger.debug(file_path)
-        self.open_file(file_path, data)
+            return None
+        return self.open_file(file_path, data)
+
+    def prev_page(self, event):
+        logger.debug("called")
+        image = self._open_prev()
+        image2 = None
+        if self.double_page:
+            image2 = self._open_prev()
+        self.image.display(image, image2, not self.right2left)
 
     def quit(self, event):
         self.destroy()
 
     def open(self, file_path):
         self.archive = self.open_archive(file_path)
-        file_path, data = self.archive[self.archive.current()]
-        self.open_file(file_path, data)
+        file_path, data = self.archive.current()
+        image = self.open_file(file_path, data)
+        self.image.display(image)
 
     def open_archive(self, file_path):
         suffix = Path(file_path).suffix.lower()
@@ -249,6 +329,7 @@ class ArchiveImageViewer(tk.Tk):
 
     def open_file(self, file_path, data=None):
         file_path = Path(file_path)
+        logger.debug(file_path)
         suffix = file_path.suffix.lower()
         logger.debug(suffix)
         if suffix in [
@@ -269,7 +350,7 @@ class ArchiveImageViewer(tk.Tk):
             ".tga",
             ".xbm",
         ]:
-            self.open_image(file_path, data)
+            return self.open_image(file_path, data)
         elif suffix in [".gif"]:
             pass
         elif suffix in [".png"]:
@@ -282,7 +363,8 @@ class ArchiveImageViewer(tk.Tk):
             pass
         else:
             logger.debug(f"Not supported.:{suffix}")
-            self.image.display(None)
+            return None
+            # self.image.display(None)
 
     # can be animation
     def open_gif_image(self, gif_path):
@@ -301,8 +383,9 @@ class ArchiveImageViewer(tk.Tk):
             image = Image.open(BytesIO(data))
         if image is None:
             messagebox.showwarning("Image open failed.", "Image open failed.")
-            return
-        self.image.display(image)
+            return None
+        return image
+        # self.image.display(image)
 
 
 def main():
