@@ -217,16 +217,86 @@ class ImageFrame(tk.Canvas):
         return image.resize(size)
 
 
-class ArchiveImageViewer(tk.Tk):
+class Config(dict):
     def __init__(self):
+        pass
+
+    def open(self, file_path):
+        file_path = Path(file_path)
+        if not file_path.exists():
+            self.write_default(file_path)
+
+        with open(file_path, mode="r", newline="") as f:
+            reader = csv.reader(f, delimiter="=")
+            for row in reader:
+                if len(row) == 0:
+                    continue
+                if row[0][0] == "#":
+                    continue
+                self[row[0].strip("")] = row[1].strip("")
+
+    def write_default(self, file_path):
+        config = """
+# Fit can be Width, Height, Both
+
+Fit = Width
+
+# Resize algorithms
+# | Filter   | Downscaling quality | Upscaling quality | Performance |
+# | No       | -                   | -                 | ******      |
+# | Nearest  | -                   | -                 | *****       |
+# | Box      | *                   | -                 | ****        |
+# | Bilinear | *                   | *                 | ***         |
+# | Hamming  | **                  | -                 | ***         |
+# | Bicubic  | ***                 | ***               | **          |
+# | Lanczos  | ****                | ****              | *           |
+
+DownScale   = Nearest
+UpScale     = Nearest
+
+
+# keybinding
+
+DoublePage  = d
+DeleteFile  = Delete
+NextPage    = h
+PrevPage    = l
+NextArchive = j
+PrevArchive = k
+Head        = g
+Tail        = G
+"""
+        with open(file_path, "w") as f:
+            f.write(config)
+
+
+class ArchiveImageViewer(tk.Tk):
+    def __init__(self, config_path="aiv.config"):
         super().__init__()
+
         self.style = ttk.Style()
 
+        self.config = Config()
+        self.config.open(config_path)
+        self.load_config()
+
         self.construct_gui()
-        self.keybinding()
 
         self.double_page = False
         self.right2left = True
+
+    def load_config(self):
+        binding = {
+            "l": self.prev_page,
+            "h": self.next_page,
+            "d": self.toggle_page_mode,
+            "o": self.toggle_order,
+            "q": self.quit,
+        }
+        for k, v in binding.items():
+            self.bind(f"<KeyPress-{k}>", v)
+
+        self.bind("<Delete>", self.delete)
 
     def construct_gui(self):
         self.main_frame = ttk.Frame(self)
@@ -240,19 +310,6 @@ class ArchiveImageViewer(tk.Tk):
         dummy_img = Image.new("RGB", (10, 10), color="black")
         self.image.mode = "Raw"
         self.image.display(dummy_img)
-
-    def keybinding(self):
-        binding = {
-            "l": self.prev_page,
-            "h": self.next_page,
-            "d": self.toggle_page_mode,
-            "o": self.toggle_order,
-            "q": self.quit,
-        }
-        for k, v in binding.items():
-            self.bind(f"<KeyPress-{k}>", v)
-
-        self.bind("<Delete>", self.delete)
 
     def delete(self, event):
         if messagebox.askokcancel("Delete file?", "Delete file?"):
