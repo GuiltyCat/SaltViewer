@@ -350,7 +350,8 @@ class ArchiveImageViewer(tk.Tk):
         logger.debug("called")
 
         # back to the second page then next
-        self.archive.next()
+        if self.double_page:
+            self.archive.next()
         image = self._open_next()
         image2 = None
         if self.double_page:
