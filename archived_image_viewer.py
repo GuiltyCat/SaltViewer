@@ -147,14 +147,19 @@ class ImageFrame(tk.Canvas):
             logger.debug("Not supported")
 
     def display(self, image):
-        self.orig_image = image
-        image = self.resize_image()
+        if image is not None:
+            self.orig_image = image
+            image = self.resize_image()
 
-        self.image = ImageTk.PhotoImage(image=image)
-        if self.item is not None:
-            self.delete(self.item)
-        self.configure(width=self.image.width(), height=self.image.height())
-        sx, sy = self.center_shift(self.image.width(), self.image.height())
+            self.image = ImageTk.PhotoImage(image=image)
+            if self.item is not None:
+                self.delete(self.item)
+            self.configure(width=self.image.width(), height=self.image.height())
+            sx, sy = self.center_shift(self.image.width(), self.image.height())
+        else:
+            self.image = None
+            sx=0
+            sy=0
         self.item = self.create_image(sx, sy, image=self.image, anchor="nw")
 
     def center_shift(self, image_width, image_height):
@@ -277,6 +282,7 @@ class ArchiveImageViewer(tk.Tk):
             pass
         else:
             logger.debug(f"Not supported.:{suffix}")
+            self.image.display(None)
 
     # can be animation
     def open_gif_image(self, gif_path):
