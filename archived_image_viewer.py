@@ -557,7 +557,7 @@ class ArchiveImageViewer(tk.Tk):
             return DirectoryArchive(file_path)
 
     def open_file(self, file_path, data=None):
-        self.title(f"{file_path}:({self.archive.i}/{len(self.archive)})")
+        self.title(f"{self.archive.file_path}/{file_path}:({self.archive.i}/{len(self.archive)})")
         file_path = Path(file_path)
         logger.debug(file_path)
         suffix = file_path.suffix.lower()
