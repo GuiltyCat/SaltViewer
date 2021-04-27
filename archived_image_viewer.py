@@ -21,7 +21,8 @@ logger.setLevel(logging.DEBUG)
 ch = logging.StreamHandler()
 ch.setLevel(logging.DEBUG)
 formatter = logging.Formatter(
-    "%(asctime)s:%(name)s:%(funcName)s:%(lineno)d:%(levelname)s:%(message)s"
+    # "%(asctime)s:%(name)s:%(funcName)s:%(lineno)d:%(levelname)s:%(message)s"
+    "%(funcName)s:%(lineno)d:%(levelname)s:%(message)s"
 )
 ch.setFormatter(formatter)
 logger.addHandler(ch)
@@ -242,11 +243,11 @@ class ImageFrame(tk.Canvas):
 
     def display(self, image, image2=None, right2left=True):
         self.stop = True
+        self.image = image
+        self.image2 = image2
         if getattr(image, "is_animated", False):
             self.stop = False
             return self.display_animation(image, 0)
-        self.image = image
-        self.image2 = image2
         if image is not None:
             div = 1 if image2 is None else 2
             image = self.resize_image(image, div)
@@ -292,6 +293,8 @@ class ImageFrame(tk.Canvas):
         duration = image.info["duration"]
         end = time.perf_counter()
         self.duration = int(duration - (end - start) * 1000)
+        logger.debug(f"duration = {duration}")
+        logger.debug(f"self.duration = {self.duration} or 0")
         self.duration = max(0, self.duration)
 
     def center_shift(self, image_width, image_height):
