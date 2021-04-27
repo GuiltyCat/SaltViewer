@@ -23,8 +23,8 @@ Feature
     - obey pillow
 - [x] Support dual page mode
 - [] Support GIF animation
-- [] Delete image
-- [] Configure file
+- [x] Delete image
+- [x] Configure file
 - [] Cache image for speed
 
 Requirements
