@@ -68,8 +68,9 @@ class ArchiveBase:
         return self[self.i]
 
     def delete(self):
+        logger.debug(self.file_path)
         if self.file_path is not None:
-            send2trash(self.file_path)
+            send2trash(str(self.file_path))
 
 
 class DirectoryArchive(ArchiveBase):
@@ -94,6 +95,12 @@ class DirectoryArchive(ArchiveBase):
             return self.file_list[i], None
         else:
             return "", None
+
+    def delete(self):
+        super().delete()
+        self.next()
+        file_path = self.file_list[self.i]
+        self.open(file_path)
 
 
 class ZipArchive(ArchiveBase):
@@ -275,8 +282,10 @@ class ImageFrame(tk.Canvas):
         return image.resize(size)
 
 
-class Config(dict):
+class Config:
     def __init__(self):
+        self.keymap = {}
+        self.setting = {}
         pass
 
     def open(self, file_path):
@@ -284,18 +293,28 @@ class Config(dict):
         if not file_path.exists():
             self.write_default(file_path)
 
+        config = None
         with open(file_path, mode="r", newline="") as f:
             reader = csv.reader(f, delimiter="=")
             for row in reader:
+
                 if len(row) == 0:
                     continue
                 if row[0][0] == "#":
                     continue
-                self[row[0].strip("")] = row[1].strip("")
+                if row[0] == "[Setting]":
+                    config = self.setting
+                    continue
+                if row[0] == "[Keymap]":
+                    config = self.keymap
+                    continue
+
+                config[row[0].strip()] = row[1].strip()
 
     def write_default(self, file_path):
         config = """
 # Fit can be Width, Height, Both
+[Setting]
 
 Fit = Width
 
@@ -313,7 +332,7 @@ DownScale   = Nearest
 UpScale     = Nearest
 
 
-# keybinding
+[Keymap]
 
 DoublePage  = d
 DeleteFile  = Delete
@@ -321,6 +340,8 @@ NextPage    = h
 PrevPage    = l
 NextArchive = j
 PrevArchive = k
+PageOrder   = o
+Quit        = q
 Head        = g
 Tail        = G
 """
@@ -331,10 +352,26 @@ Tail        = G
 class ArchiveImageViewer(tk.Tk):
     def __init__(self, config_path="aiv.config"):
         super().__init__()
+        self.binding = {
+            "DoublePage": self.toggle_page_mode,
+            "DeleteFile": self.delete,
+            "NextPage": self.next_page,
+            "PrevPage": self.prev_page,
+            "NextArchive": self.next_archive,
+            "PrevArchive": self.prev_archive,
+            "PageOrder": self.toggle_order,
+            "Quit": self.quit,
+            "Head": self.head,
+            "Tail": self.tail,
+        }
 
         self.style = ttk.Style()
 
         self.config = Config()
+
+        # temporary
+        self.config.write_default(config_path)
+
         self.config.open(config_path)
         self.load_config()
 
@@ -344,17 +381,34 @@ class ArchiveImageViewer(tk.Tk):
         self.right2left = True
 
     def load_config(self):
-        binding = {
-            "l": self.prev_page,
-            "h": self.next_page,
-            "d": self.toggle_page_mode,
-            "o": self.toggle_order,
-            "q": self.quit,
-        }
-        for k, v in binding.items():
-            self.bind(f"<KeyPress-{k}>", v)
+        print(self.config.keymap)
+        print(self.config.setting)
+        for name, key in self.config.keymap.items():
+            func = self.binding[name]
+            self.bind(f"<KeyPress-{key}>", func)
 
-        self.bind("<Delete>", self.delete)
+        # binding = {
+        #    "l": self.prev_page,
+        #    "h": self.next_page,
+        #    "d": self.toggle_page_mode,
+        #    "o": self.toggle_order,
+        #    "q": self.quit,
+        # }
+        # for k, v in binding.items():
+
+        # self.bind("<Delete>", self.delete)
+
+    def head(self):
+        pass
+
+    def tail(self):
+        pass
+
+    def next_archive(self):
+        pass
+
+    def prev_archive(self):
+        pass
 
     def construct_gui(self):
         self.main_frame = ttk.Frame(self)
@@ -372,6 +426,8 @@ class ArchiveImageViewer(tk.Tk):
     def delete(self, event):
         if messagebox.askokcancel("Delete file?", "Delete file?"):
             print("Deleted.")
+            self.current_page()
+            self.archive.delete()
         else:
             print("Cancelled")
 
