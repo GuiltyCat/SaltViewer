@@ -8,6 +8,8 @@ import zipfile
 from io import BytesIO
 from pathlib import Path
 
+import py7zr
+import rarfile
 from natsort import natsorted
 from PIL import Image, ImageTk
 from send2trash import send2trash
@@ -66,7 +68,32 @@ class ArchiveBase:
         return self[self.i]
 
     def delete(self):
-        pass
+        if self.file_path is not None:
+            send2trash(self.file_path)
+
+
+class DirectoryArchive(ArchiveBase):
+    def __init__(self, file_path):
+        super().__init__()
+        self.open(file_path)
+
+    def open(self, file_path):
+        self.file_path = Path(file_path)
+        self.file_list = natsorted(
+            list(Path(self.file_path.parent).glob("*")), key=lambda x: str(x)
+        )
+        logger.debug(self.file_list)
+        self.i = self.file_list.index(Path(file_path))
+        logger.debug(f"self.i = {self.i}")
+
+    def __getitem__(self, i):
+        logger.debug(f"self.i = {self.i}")
+        if 0 <= i < len(self):
+            self.file_path = self.file_list[i]
+            self.i = i
+            return self.file_list[i], None
+        else:
+            return "", None
 
 
 class ZipArchive(ArchiveBase):
@@ -95,36 +122,67 @@ class ZipArchive(ArchiveBase):
         logger.debug(f"self.i={self.i}")
         logger.debug(self.file_list[i])
         logger.debug(file_name)
-        return file_name, file_byte
-
-    def delete(self):
-        if self.file_path is not None:
-            send2trash(self.file_path)
+        return file_name, BytesIO(file_byte)
 
 
-class DirectoryArchive(ArchiveBase):
+class RarArchive(ArchiveBase):
     def __init__(self, file_path):
         super().__init__()
         self.open(file_path)
 
     def open(self, file_path):
-        self.file_path = Path(file_path)
-        self.file_list = natsorted(
-            list(Path(self.file_path.parent).glob("*")), key=lambda x: str(x)
-        )
+        self.file_path = file_path
+        self.file_list = []
+        with rarfile.RarFile(file_path) as f:
+            self.file_list = natsorted(f.namelist())
+
+        self.file_list = self.file_list[1:]
         logger.debug(self.file_list)
-        self.i = self.file_list.index(Path(file_path))
-        logger.debug(f"self.i = {self.i}")
 
     def __getitem__(self, i):
-        logger.debug(f"self.i = {self.i}")
+        self.i = i
+        file_name = ""
+        file_byte = None
         if 0 <= i < len(self):
-            return self.file_list[i], None
-        else:
-            return "", None
+            with rarfile.RarFile(self.file_path) as f:
+                file_name = Path(self.file_list[i])
+                file_byte = f.read(self.file_list[i])
 
-    def delete(self):
-        send2trash(self.file_list[self.i])
+        logger.debug(f"self.i={self.i}")
+        logger.debug(self.file_list[i])
+        logger.debug(file_name)
+        return file_name, BytesIO(file_byte)
+
+
+class SevenZipArchive(ArchiveBase):
+    def __init__(self, file_path):
+        super().__init__()
+        self.open(file_path)
+
+    def open(self, file_path):
+        self.file_path = file_path
+        self.file_list = []
+        with py7zr.SevenZipFile(file_path) as f:
+            self.file_list = natsorted(f.getnames())
+
+        self.file_list = self.file_list[1:]
+        logger.debug(self.file_list)
+
+    def __getitem__(self, i):
+        self.i = i
+        file_name = ""
+        file_byte = None
+        if 0 <= i < len(self):
+            with py7zr.SevenZipFile(self.file_path) as f:
+                file_name = Path(self.file_list[i])
+                for name, data in f.read([self.file_list[i]]).items():
+                    file_byte = data
+
+        logger.debug(f"file_bype = {file_byte}")
+        logger.debug(f"self.i={self.i}")
+        logger.debug(self.file_list[i])
+        logger.debug(file_name)
+        return file_name, file_byte
 
 
 class ImageFrame(tk.Canvas):
@@ -388,6 +446,10 @@ class ArchiveImageViewer(tk.Tk):
         suffix = Path(file_path).suffix.lower()
         if suffix == ".zip":
             return ZipArchive(file_path)
+        elif suffix == ".rar":
+            return RarArchive(file_path)
+        elif suffix == ".7z":
+            return SevenZipArchive(file_path)
         else:
             return DirectoryArchive(file_path)
 
@@ -444,7 +506,7 @@ class ArchiveImageViewer(tk.Tk):
         if data is None:
             image = Image.open(image_path)
         else:
-            image = Image.open(BytesIO(data))
+            image = Image.open(data)
         if image is None:
             messagebox.showwarning("Image open failed.", "Image open failed.")
             return None
