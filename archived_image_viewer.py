@@ -209,6 +209,9 @@ class ImageFrame(tk.Canvas):
         self.mode = "FitInFrame"
         self.duration = 0
 
+        # self.stop = True
+        self.after_id = None
+
     def resize_image(self, image, div=1):
         if image is None:
             return None
@@ -243,11 +246,15 @@ class ImageFrame(tk.Canvas):
 
     def display(self, image, image2=None, right2left=True):
         self.stop = True
+        if self.after_id is not None:
+            self.after_cancel(self.after_id)
+        self.after_id
         self.image = image
         self.image2 = image2
         if getattr(image, "is_animated", False):
             self.stop = False
             return self.display_animation(image, 0)
+
         if image is not None:
             div = 1 if image2 is None else 2
             image = self.resize_image(image, div)
@@ -271,7 +278,9 @@ class ImageFrame(tk.Canvas):
     def display_animation(self, image, counter):
         start = time.perf_counter()
         if self.stop:
+            self.stop = False
             return
+
         logger.debug(f"counter={counter}")
         counter %= image.n_frames
         image.seek(counter)
@@ -285,8 +294,9 @@ class ImageFrame(tk.Canvas):
         self.configure(width=width, height=height)
         sx, sy = self.center_shift(width, height)
         self.item = self.create_image(sx, sy, image=self.tk_image, anchor="nw")
-        self.after_idle(
-            self.after, self.duration, self.display_animation, image, counter + 1
+
+        self.after_id = self.after(
+            self.duration, self.display_animation, image, counter + 1
         )
 
         # automatically adjust duration
@@ -295,7 +305,8 @@ class ImageFrame(tk.Canvas):
         self.duration = int(duration - (end - start) * 1000)
         logger.debug(f"duration = {duration}")
         logger.debug(f"self.duration = {self.duration} or 0")
-        self.duration = max(0, self.duration)
+        # if max(0, self.duration), image will not be updated.
+        self.duration = max(1, self.duration)
 
     def center_shift(self, image_width, image_height):
         sx = (self.width() - image_width) / 2
