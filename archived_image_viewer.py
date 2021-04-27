@@ -240,7 +240,7 @@ class ImageFrame(tk.Canvas):
 
     def display(self, image, image2=None, right2left=True):
         self.stop = True
-        if hasattr(image, "is_animated") and image.is_animated:
+        if getattr(image, "is_animated", False):
             self.stop = False
             return self.display_animation(image, 0)
         self.image = image
@@ -585,7 +585,7 @@ class ArchiveImageViewer(tk.Tk):
             return None
 
         # Force single page mode when animation
-        if hasattr(image, "is_animated") and image.is_animated:
+        if getattr(image, "is_animated", False):
             self.double_page = False
         return image
 
