@@ -239,6 +239,10 @@ class ImageFrame(tk.Canvas):
         return new_image
 
     def display(self, image, image2=None, right2left=True):
+        self.stop = True
+        if hasattr(image, "is_animated") and image.is_animated:
+            self.stop = False
+            return self.display_animation(image, 0)
         self.image = image
         self.image2 = image2
         if image is not None:
@@ -260,6 +264,24 @@ class ImageFrame(tk.Canvas):
             sx = 0
             sy = 0
         self.item = self.create_image(sx, sy, image=self.tk_image, anchor="nw")
+
+    def display_animation(self, image, counter):
+        if self.stop:
+            return
+        logger.debug(f"counter={counter}")
+        counter %= image.n_frames
+        image.seek(counter)
+
+        new_image = self.resize_image(image)
+        self.tk_image = ImageTk.PhotoImage(image=new_image)
+        if self.item is not None:
+            self.delete(self.item)
+        width = self.tk_image.width()
+        height = self.tk_image.height()
+        self.configure(width=width, height=height)
+        sx, sy = self.center_shift(width, height)
+        self.item = self.create_image(sx, sy, image=self.tk_image, anchor="nw")
+        self.after_idle(self.after, 0, self.display_animation, image, counter + 1)
 
     def center_shift(self, image_width, image_height):
         sx = (self.width() - image_width) / 2
@@ -533,8 +555,6 @@ class ArchiveImageViewer(tk.Tk):
             ".xbm",
         ]:
             return self.open_image(file_path, data)
-        elif suffix in [".gif"]:
-            pass
         elif suffix in [".png"]:
             pass
         elif suffix in [".tiff"]:
@@ -547,24 +567,26 @@ class ArchiveImageViewer(tk.Tk):
             logger.debug(f"Not supported.:{suffix}")
             return None
 
-    # can be animation
-    def open_gif_image(self, gif_path):
-        image = Image.open(gif_path)
-        return image
+    def _open_by_path_or_data(self, path, data=None):
+        if data is None:
+            return Image.open(path)
+        else:
+            return Image.open(data)
 
     # can be animation
-    def open_png_image(self, png_path):
-        image = Image.open(png_path)
+    def open_png_image(self, png_path, data=None):
+        image = self._open_by_path_or_data(png_path, data)
         return image
 
     def open_image(self, image_path, data=None):
-        if data is None:
-            image = Image.open(image_path)
-        else:
-            image = Image.open(data)
+        image = self._open_by_path_or_data(image_path, data)
         if image is None:
             messagebox.showwarning("Image open failed.", "Image open failed.")
             return None
+
+        # Force single page mode when animation
+        if hasattr(image, "is_animated") and image.is_animated:
+            self.double_page = False
         return image
 
 
