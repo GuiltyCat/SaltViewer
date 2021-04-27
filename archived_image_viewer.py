@@ -1,6 +1,7 @@
 import csv
 import logging
 import sys
+import time
 import tkinter as tk
 import tkinter.messagebox as messagebox
 import tkinter.ttk as ttk
@@ -205,6 +206,7 @@ class ImageFrame(tk.Canvas):
             "<Configure>", lambda *kw: self.display(self.image, self.image2)
         )
         self.mode = "FitInFrame"
+        self.duration = 0
 
     def resize_image(self, image, div=1):
         if image is None:
@@ -266,6 +268,7 @@ class ImageFrame(tk.Canvas):
         self.item = self.create_image(sx, sy, image=self.tk_image, anchor="nw")
 
     def display_animation(self, image, counter):
+        start = time.perf_counter()
         if self.stop:
             return
         logger.debug(f"counter={counter}")
@@ -281,7 +284,15 @@ class ImageFrame(tk.Canvas):
         self.configure(width=width, height=height)
         sx, sy = self.center_shift(width, height)
         self.item = self.create_image(sx, sy, image=self.tk_image, anchor="nw")
-        self.after_idle(self.after, 0, self.display_animation, image, counter + 1)
+        self.after_idle(
+            self.after, self.duration, self.display_animation, image, counter + 1
+        )
+
+        # automatically adjust duration
+        duration = image.info["duration"]
+        end = time.perf_counter()
+        self.duration = int(duration - (end - start) * 1000)
+        self.duration = max(0, self.duration)
 
     def center_shift(self, image_width, image_height):
         sx = (self.width() - image_width) / 2
