@@ -490,7 +490,6 @@ class ArchiveImageViewer(tk.Tk):
         else:
             logger.debug(f"Not supported.:{suffix}")
             return None
-            # self.image.display(None)
 
     # can be animation
     def open_gif_image(self, gif_path):
@@ -511,7 +510,6 @@ class ArchiveImageViewer(tk.Tk):
             messagebox.showwarning("Image open failed.", "Image open failed.")
             return None
         return image
-        # self.image.display(image)
 
 
 def main():
