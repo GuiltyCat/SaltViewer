@@ -746,11 +746,6 @@ class SaltViewer(tk.Tk):
         else:
             return Image.open(data)
 
-    # can be animation
-    def open_png_image(self, png_path, data=None):
-        image = self._open_by_path_or_data(png_path, data)
-        return image
-
     def open_image(self, image_path, data=None):
         image = self._open_by_path_or_data(image_path, data)
         if image is None:
