@@ -1,4 +1,5 @@
 import csv
+import io
 import logging
 import sys
 import time
@@ -6,7 +7,6 @@ import tkinter as tk
 import tkinter.messagebox as messagebox
 import tkinter.ttk as ttk
 import zipfile
-from io import BytesIO
 from pathlib import Path
 
 import py7zr
@@ -31,10 +31,11 @@ logger.addHandler(ch)
 class ArchiveBase:
     def __init__(self):
         self.file_path = None
+        self.data = None
         self.file_list = []
         self.i = 0
 
-    def open(self, file_path):
+    def open(self, file_path, data=None):
         pass
 
     def close(self):
@@ -68,11 +69,12 @@ class ArchiveBase:
 
 
 class DirectoryArchive(ArchiveBase):
-    def __init__(self, file_path):
+    def __init__(self, file_path, data=None):
         super().__init__()
-        self.open(file_path)
+        self.open(file_path, data)
 
-    def open(self, file_path):
+    def open(self, file_path, data=None):
+        # you cannot path data, ignored
         self.file_path = Path(file_path)
         self.file_list = natsorted(
             list(Path(self.file_path.parent).glob("*")), key=lambda x: str(x)
@@ -98,14 +100,18 @@ class DirectoryArchive(ArchiveBase):
 
 
 class ZipArchive(ArchiveBase):
-    def __init__(self, file_path):
+    def __init__(self, file_path, data=None):
         super().__init__()
-        self.open(file_path)
+        self.open(file_path, data)
 
-    def open(self, file_path):
+    def open(self, file_path, data=None):
         self.file_path = file_path
+        self.data = data
         self.file_list = []
-        with zipfile.ZipFile(file_path) as f:
+
+        fp = self.file_path if data is None else io.BytesIO(self.data)
+
+        with zipfile.ZipFile(fp) as f:
             self.file_list = natsorted(f.namelist())
 
         self.file_list = self.file_list[1:]
@@ -115,26 +121,33 @@ class ZipArchive(ArchiveBase):
         self.i = i
         file_name = ""
         file_byte = None
+
+        fp = self.file_path if self.data is None else io.BytesIO(self.data)
+
         if 0 <= i < len(self):
-            with zipfile.ZipFile(self.file_path) as f:
+            with zipfile.ZipFile(fp) as f:
                 file_name = Path(self.file_list[i])
                 file_byte = f.read(self.file_list[i])
 
         logger.debug(f"self.i={self.i}")
         logger.debug(self.file_list[i])
         logger.debug(file_name)
-        return file_name, BytesIO(file_byte)
+        return file_name, io.BytesIO(file_byte)
 
 
 class RarArchive(ArchiveBase):
-    def __init__(self, file_path):
+    def __init__(self, file_path, data=None):
         super().__init__()
-        self.open(file_path)
+        self.open(file_path, data)
 
-    def open(self, file_path):
+    def open(self, file_path, data=None):
         self.file_path = file_path
+        self.data = data
         self.file_list = []
-        with rarfile.RarFile(file_path) as f:
+
+        fp = self.file_path if data is None else io.BytesIO(self.data)
+
+        with rarfile.RarFile(fp) as f:
             self.file_list = natsorted(f.namelist())
 
         self.file_list = self.file_list[1:]
@@ -144,26 +157,29 @@ class RarArchive(ArchiveBase):
         self.i = i
         file_name = ""
         file_byte = None
+        fp = self.file_path if self.data is None else io.BytesIO(self.data)
         if 0 <= i < len(self):
-            with rarfile.RarFile(self.file_path) as f:
+            with rarfile.RarFile(fp) as f:
                 file_name = Path(self.file_list[i])
                 file_byte = f.read(self.file_list[i])
 
         logger.debug(f"self.i={self.i}")
         logger.debug(self.file_list[i])
         logger.debug(file_name)
-        return file_name, BytesIO(file_byte)
+        return file_name, io.BytesIO(file_byte)
 
 
 class SevenZipArchive(ArchiveBase):
-    def __init__(self, file_path):
+    def __init__(self, file_path, data=None):
         super().__init__()
-        self.open(file_path)
+        self.open(file_path, data)
 
-    def open(self, file_path):
+    def open(self, file_path, data=None):
         self.file_path = file_path
+        self.data = None
         self.file_list = []
-        with py7zr.SevenZipFile(file_path) as f:
+        fp = self.file_path if self.data is None else io.BytesIO(self.data)
+        with py7zr.SevenZipFile(fp) as f:
             self.file_list = natsorted(f.getnames())
 
         self.file_list = self.file_list[1:]
@@ -173,8 +189,9 @@ class SevenZipArchive(ArchiveBase):
         self.i = i
         file_name = ""
         file_byte = None
+        fp = self.file_path if self.data is None else io.BytesIO(self.data)
         if 0 <= i < len(self):
-            with py7zr.SevenZipFile(self.file_path) as f:
+            with py7zr.SevenZipFile(fp) as f:
                 file_name = Path(self.file_list[i])
                 for name, data in f.read([self.file_list[i]]).items():
                     file_byte = data
@@ -531,22 +548,22 @@ class SaltViewer(tk.Tk):
     def quit(self, event):
         self.destroy()
 
-    def open(self, file_path):
-        self.archive = self.open_archive(file_path)
+    def open(self, file_path, data=None):
+        self.archive = self.open_archive(file_path, data)
         file_path, data = self.archive.current()
         image = self.open_file(file_path, data)
         self.image.display(image)
 
-    def open_archive(self, file_path):
+    def open_archive(self, file_path, data=None):
         suffix = Path(file_path).suffix.lower()
         if suffix == ".zip":
-            return ZipArchive(file_path)
+            return ZipArchive(file_path, data)
         elif suffix == ".rar":
-            return RarArchive(file_path)
+            return RarArchive(file_path, data)
         elif suffix == ".7z":
-            return SevenZipArchive(file_path)
+            return SevenZipArchive(file_path, data)
         else:
-            return DirectoryArchive(file_path)
+            return DirectoryArchive(file_path, data)
 
     def open_file(self, file_path, data=None):
         self.title(
@@ -582,6 +599,8 @@ class SaltViewer(tk.Tk):
         elif suffix in [".tiff"]:
             # can have multi images
             pass
+        elif suffix in [".zip", ".rar", ".7z"]:
+            self.open(file_path, data)
         else:
             logger.debug(f"Not supported.:{suffix}")
             return None
