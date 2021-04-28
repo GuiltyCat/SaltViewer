@@ -20,7 +20,6 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
 ch = logging.StreamHandler()
-ch.setLevel(logging.DEBUG)
 formatter = logging.Formatter(
     # "%(asctime)s:%(name)s:%(funcName)s:%(lineno)d:%(levelname)s:%(message)s"
     "%(funcName)s:%(lineno)d:%(levelname)s:%(message)s"
@@ -213,6 +212,15 @@ class SevenZipArchive(ArchiveBase):
 
 
 class ImageFrame(tk.Canvas):
+    algorithm = {
+        "Nearest": Image.NEAREST,
+        "Box": Image.BOX,
+        "Bilinear": Image.BILINEAR,
+        "Hamming": Image.HAMMING,
+        "Bicubic": Image.BICUBIC,
+        "Lanczos": Image.LANCZOS,
+    }
+
     def __init__(self, master):
         super().__init__(master, highlightthickness=0, bg="black")
         self.master = master
@@ -233,13 +241,29 @@ class ImageFrame(tk.Canvas):
         self.fit_width = True
         self.fit_height = True
 
+        self.up_scale = Image.NEAREST
+        self.down_scale = Image.NEAREST
+
+    def select_up_scale_algorithm(self, up):
+        algo = self.algorithm.get(up)
+        if algo is not None:
+            self.up_scale = algo
+        else:
+            logger.warning("UpScale = {up} is not supported.")
+
+    def select_down_scale_algorithm(self, down):
+        algo = self.algorithm.get(down)
+        if algo is not None:
+            self.down_scale = algo
+        else:
+            logger.warning("DownScale = {down} is not supported.")
+
     def resize_image(self, image, div=1):
         if image is None:
             return None
         if not self.fit_width and not self.fit_height:
             return image
         elif self.fit_width and self.fit_height:
-            logger.debug("FitInFrame")
             return self.fit_in_frame(image, div)
         elif self.fit_width and not self.fit_height:
             return self.fit_in_frame_width(image, div)
@@ -349,58 +373,39 @@ class ImageFrame(tk.Canvas):
         height = self.height()
         logger.debug(f"{width}, {height}")
         times = min(width / image.width, height / image.height)
-
+        if times == 1:
+            return image
         size = (int(image.width * times), int(image.height * times))
-        return image.resize(size)
+        return self.resize(image, size, self.up_scale if times > 1 else self.down_scale)
+
+    def resize(self, image, size, algorithm):
+        if size[0] == 0 or size[1] == 0:
+            size = (1, 1)
+        return image.resize(size, algorithm)
 
     def fit_in_frame_width(self, image, div):
         width = self.width() / div
         height = self.height()
         logger.debug(f"{width}, {height}")
         times = width / image.width
+        if times == 1:
+            return image
         size = (int(image.width * times), int(image.height * times))
-        return image.resize(size)
+        return self.resize(image, size, self.up_scale if times > 1 else self.down_scale)
 
     def fit_in_frame_height(self, image, div):
         width = self.width() / div
         height = self.height()
         logger.debug(f"{width}, {height}")
         times = height / image.height
+        if times == 1:
+            return image
         size = (int(image.width * times), int(image.height * times))
-        return image.resize(size)
+        return self.resize(image, size, self.up_scale if times > 1 else self.down_scale)
 
 
 class Config:
-    def __init__(self):
-        self.keymap = {}
-        self.setting = {}
-        pass
-
-    def open(self, file_path):
-        file_path = Path(file_path)
-        if not file_path.exists():
-            self.write_default(file_path)
-
-        config = None
-        with open(file_path, mode="r", newline="") as f:
-            reader = csv.reader(f, delimiter="=")
-            for row in reader:
-
-                if len(row) == 0:
-                    continue
-                if row[0][0] == "#":
-                    continue
-                if row[0] == "[Setting]":
-                    config = self.setting
-                    continue
-                if row[0] == "[Keymap]":
-                    config = self.keymap
-                    continue
-
-                config[row[0].strip()] = row[1].strip()
-
-    def write_default(self, file_path):
-        config = """\
+    default_config = """\
 [Setting]
 
 # Width, Height or Both
@@ -414,7 +419,6 @@ PageOrder  = right2left
 
 # Resize algorithms
 # | Filter   | Downscaling quality | Upscaling quality | Performance |
-# | No       | -                   | -                 | ******      |
 # | Nearest  | -                   | -                 | *****       |
 # | Box      | *                   | -                 | ****        |
 # | Bilinear | *                   | *                 | ***         |
@@ -422,8 +426,8 @@ PageOrder  = right2left
 # | Bicubic  | ***                 | ***               | **          |
 # | Lanczos  | ****                | ****              | *           |
 
-DownScale   = Nearest
-UpScale     = Nearest
+UpScale     = Lanczos
+DownScale   = Lanczos
 
 [Keymap]
 
@@ -446,8 +450,43 @@ Quit        = q
 Head        = g
 Tail        = G
 """
-        with open(file_path, "w") as f:
-            f.write(config)
+
+    def __init__(self):
+        self.keymap = {}
+        self.setting = {}
+        pass
+
+    def open(self, file_path):
+        file_path = Path(file_path)
+        fp = file_path
+        if file_path.exists():
+            with open(fp, mode="r", newline="") as f:
+                self._load(f)
+        else:
+            with io.StringIO(self.default_config) as f:
+                self._load(f)
+
+    def _load(self, f):
+
+        config = None
+        reader = csv.reader(f, delimiter="=")
+        for row in reader:
+
+            if len(row) == 0:
+                continue
+            if row[0][0] == "#":
+                continue
+            if row[0] == "[Setting]":
+                config = self.setting
+                continue
+            if row[0] == "[Keymap]":
+                config = self.keymap
+                continue
+
+            if config is None:
+                continue
+
+            config[row[0].strip()] = row[1].strip()
 
 
 class SaltViewer(tk.Tk):
@@ -498,20 +537,24 @@ class SaltViewer(tk.Tk):
             func = self.binding.get(name)
             if name is None:
                 print(f"Such operation is not supported: {name}")
-
-            if len(key) == 1:
+            elif len(key) == 1:
                 self.bind(f"<KeyPress-{key}>", func)
-
-            if key == "Delete":
+            elif key == "Delete":
                 self.bind("<Delete>", func)
+            else:
+                print(f"Not supported.: {name} = {key}")
 
         for name, key in self.config.setting.items():
             if name == "FitMode":
                 self._change_image_fit_mode(key)
-            if name == "DoublePage":
+            elif name == "DoublePage":
                 self.double_page = True if key == "true" else False
-            if name == "PageOrder":
+            elif name == "PageOrder":
                 self.right2left = True if key == "right2left" else False
+            elif name == "UpScale":
+                self.image.select_up_scale_algorithm(key)
+            elif name == "DownScale":
+                self.image.select_down_scale_algorithm(key)
 
     def _change_image_fit_mode(self, key):
         if key == "Both":
@@ -717,8 +760,12 @@ def main():
     parser.add_argument(
         "--config", help="configuration file path", type=str, default="sv.config"
     )
+    parser.add_argument("--debug", help="debug mode", action="store_true")
 
     args = parser.parse_args()
+
+    if args.debug:
+        logger.setLevel(logging.DEBUG)
 
     sv = SaltViewer(args.config)
     sv.open(Path(args.path))
