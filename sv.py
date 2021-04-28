@@ -1,3 +1,4 @@
+import argparse
 import csv
 import io
 import logging
@@ -223,22 +224,29 @@ class ImageFrame(tk.Canvas):
         self.master.bind(
             "<Configure>", lambda *kw: self.display(self.image, self.image2)
         )
-        self.mode = "FitInFrame"
+
         self.duration = 0
 
         # self.stop = True
         self.after_id = None
 
+        self.fit_width = True
+        self.fit_height = True
+
     def resize_image(self, image, div=1):
         if image is None:
             return None
-        if self.mode == "Raw":
+        if not self.fit_width and not self.fit_height:
             return image
-        elif self.mode == "FitInFrame":
+        elif self.fit_width and self.fit_height:
             logger.debug("FitInFrame")
             return self.fit_in_frame(image, div)
+        elif self.fit_width and not self.fit_height:
+            return self.fit_in_frame_width(image, div)
+        elif not self.fit_width and self.fit_height:
+            return self.fit_in_frame_height(image, div)
         else:
-            logger.debug("Not supported")
+            logger.debug("Not supported.")
 
     def merge_image(self, image, image2, right2left):
         if image is None or image2 is None:
@@ -345,6 +353,22 @@ class ImageFrame(tk.Canvas):
         size = (int(image.width * times), int(image.height * times))
         return image.resize(size)
 
+    def fit_in_frame_width(self, image, div):
+        width = self.width() / div
+        height = self.height()
+        logger.debug(f"{width}, {height}")
+        times = width / image.width
+        size = (int(image.width * times), int(image.height * times))
+        return image.resize(size)
+
+    def fit_in_frame_height(self, image, div):
+        width = self.width() / div
+        height = self.height()
+        logger.debug(f"{width}, {height}")
+        times = height / image.height
+        size = (int(image.width * times), int(image.height * times))
+        return image.resize(size)
+
 
 class Config:
     def __init__(self):
@@ -377,10 +401,16 @@ class Config:
 
     def write_default(self, file_path):
         config = """
-# Fit can be Width, Height, Both
 [Setting]
 
-Fit = Width
+# Fit mode. Width, Height or Both
+Fit = Both
+
+# Default page type. true or false.
+DoublePage = False
+
+# right2left or left2right
+PageOrder  = right2left
 
 # Resize algorithms
 # | Filter   | Downscaling quality | Upscaling quality | Performance |
@@ -414,7 +444,8 @@ Tail        = G
 
 
 class SaltViewer(tk.Tk):
-    def __init__(self, config_path="aiv.config"):
+    def __init__(self, config_path):
+
         super().__init__()
         self.binding = {
             "DoublePage": self.toggle_page_mode,
@@ -430,23 +461,17 @@ class SaltViewer(tk.Tk):
         }
 
         self.style = ttk.Style()
-
-        self.config = Config()
-
-        # temporary
-        self.config.write_default(config_path)
-
-        self.config.open(config_path)
-        self.load_config()
-
         self.construct_gui()
 
         self.double_page = False
         self.right2left = True
 
+        self.config = Config()
+        self.config.open(config_path)
+
+        self.load_config()
+
     def load_config(self):
-        print(self.config.keymap)
-        print(self.config.setting)
         for name, key in self.config.keymap.items():
             func = self.binding.get(name)
             if name is None:
@@ -457,6 +482,25 @@ class SaltViewer(tk.Tk):
 
             if key == "Delete":
                 self.bind("<Delete>", func)
+
+        for name, key in self.config.setting.items():
+            if name == "Fit":
+                self._change_image_fit_mode(key)
+            if name == "DoublePage":
+                self.double_page = True if key == "true" else False
+            if name == "PageOrder":
+                self.right2left = True if key == "right2left" else False
+
+    def _change_image_fit_mode(self, key):
+        if key == "Both":
+            self.image.fit_width = True
+            self.image.fit_height = True
+        elif key == "Width":
+            self.image.fit_width = True
+            self.image.fit_height = False
+        elif key == "Height":
+            self.image.fit_width = False
+            self.image.fit_height = True
 
     def head(self, event):
         self.archive.head()
@@ -643,13 +687,18 @@ class SaltViewer(tk.Tk):
 
 
 def main():
-    args = sys.argv
-    if len(args) <= 1:
-        print("file path is required.")
-        return
-    sv = SaltViewer()
-    sv.open(Path(args[1]))
-    sv.image.mode = "FitInFrame"
+
+    parser = argparse.ArgumentParser(description="SaltViewer")
+    parser.add_argument(
+        "path", help="image file or archive file", type=str, default=None
+    )
+    parser.add_argument(
+        "--config", help="configuration file path", type=str, default="sv.config"
+    )
+    args = parser.parse_args()
+
+    sv = SaltViewer(args.config)
+    sv.open(Path(args.path))
     sv.mainloop()
 
 
