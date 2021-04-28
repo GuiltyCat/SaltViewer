@@ -550,7 +550,8 @@ class SaltViewer(tk.Tk):
 
     def open_file(self, file_path, data=None):
         self.title(
-            f"{self.archive.file_path}/{file_path}:({self.archive.i}/{len(self.archive)})"
+            f"{self.archive.file_path}/{file_path}"
+            + f":({self.archive.i}/{len(self.archive)})"
         )
         file_path = Path(file_path)
         logger.debug(file_path)
