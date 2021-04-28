@@ -302,6 +302,9 @@ class ImageFrame(tk.Canvas):
         self.image2 = image2
         if getattr(image, "is_animated", False):
             self.stop = False
+            self.start = time.perf_counter()
+            duration = image.info["duration"]
+            logger.debug(f"duration = {duration}")
             return self.display_animation(image, 0)
 
         if image is not None:
@@ -325,7 +328,6 @@ class ImageFrame(tk.Canvas):
         self.item = self.create_image(sx, sy, image=self.tk_image, anchor="nw")
 
     def display_animation(self, image, counter):
-        start = time.perf_counter()
         if self.stop:
             self.stop = False
             return
@@ -344,18 +346,19 @@ class ImageFrame(tk.Canvas):
         sx, sy = self.center_shift(width, height)
         self.item = self.create_image(sx, sy, image=self.tk_image, anchor="nw")
 
-        self.after_id = self.after(
-            self.duration, self.display_animation, image, counter + 1
-        )
-
         # automatically adjust duration
         duration = image.info["duration"]
         end = time.perf_counter()
-        self.duration = int(duration - (end - start) * 1000)
-        logger.debug(f"duration = {duration}")
+        self.duration = int(duration - (end - self.start) * 1000)
+        self.start = end
         logger.debug(f"self.duration = {self.duration} or 0")
-        # if max(0, self.duration), image will not be updated.
+        # if self.duration == 0, image will not be updated.
         self.duration = max(1, self.duration)
+
+
+        self.after_id = self.after(
+            self.duration, self.display_animation, image, counter + 1
+        )
 
     def center_shift(self, image_width, image_height):
         sx = (self.width() - image_width) / 2
@@ -408,7 +411,7 @@ class Config:
     default_config = """\
 [Setting]
 
-# Width, Height or Both
+# None, Width, Height or Both
 FitMode = Both
 
 # true or false.
@@ -426,8 +429,8 @@ PageOrder  = right2left
 # | Bicubic  | ***                 | ***               | **          |
 # | Lanczos  | ****                | ****              | *           |
 
-UpScale     = Lanczos
-DownScale   = Lanczos
+UpScale     = Nearest
+DownScale   = Nearest
 
 [Keymap]
 
@@ -440,6 +443,7 @@ PrevPage    = l
 NextArchive = j
 PrevArchive = k
 
+FitNone     = N
 FitWidth    = W
 FitHeight   = H
 FitBoth     = B
@@ -504,6 +508,7 @@ class SaltViewer(tk.Tk):
             "FitWidth": self.fit_width,
             "FitHeight": self.fit_height,
             "FitBoth": self.fit_both,
+            "FitNone": self.fit_none,
             "Quit": self.quit,
             "Head": self.head,
             "Tail": self.tail,
@@ -530,6 +535,10 @@ class SaltViewer(tk.Tk):
 
     def fit_both(self, event):
         self._change_image_fit_mode("Both")
+        self.current_page()
+
+    def fit_none(self, event):
+        self._change_image_fit_mode("None")
         self.current_page()
 
     def load_config(self):
@@ -566,6 +575,9 @@ class SaltViewer(tk.Tk):
         elif key == "Height":
             self.image.fit_width = False
             self.image.fit_height = True
+        elif key == "None":
+            self.image.fit_width = False
+            self.image.fit_height = False
 
     def head(self, event):
         self.archive.head()
