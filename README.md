@@ -1,4 +1,4 @@
-ArchivedImageViewer
+SaltViewer
 ===============
 
 Now on development.
