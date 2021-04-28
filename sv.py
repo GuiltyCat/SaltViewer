@@ -2,7 +2,6 @@ import argparse
 import csv
 import io
 import logging
-import sys
 import time
 import tkinter as tk
 import tkinter.messagebox as messagebox
@@ -17,12 +16,13 @@ from PIL import Image, ImageTk
 from send2trash import send2trash
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.WARNING)
 
 ch = logging.StreamHandler()
 formatter = logging.Formatter(
     # "%(asctime)s:%(name)s:%(funcName)s:%(lineno)d:%(levelname)s:%(message)s"
-    "%(funcName)s:%(lineno)d:%(levelname)s:%(message)s"
+    # "%(funcName)s:%(lineno)d:%(levelname)s:%(message)s"
+    "%(asctime)s:%(funcName)s:%(lineno)d:%(message)s"
 )
 ch.setFormatter(formatter)
 logger.addHandler(ch)
@@ -228,6 +228,7 @@ class ImageFrame(tk.Canvas):
 
         self.image = None
         self.image2 = None
+        self.tk_image = None
 
         self.master.bind(
             "<Configure>", lambda *kw: self.display(self.image, self.image2)
@@ -302,7 +303,6 @@ class ImageFrame(tk.Canvas):
         self.image2 = image2
         if getattr(image, "is_animated", False):
             self.stop = False
-            self.start = time.perf_counter()
             duration = image.info["duration"]
             logger.debug(f"duration = {duration}")
             return self.display_animation(image, 0)
@@ -313,7 +313,9 @@ class ImageFrame(tk.Canvas):
             image2 = self.resize_image(image2, div)
 
             new_image = self.merge_image(image, image2, right2left)
+            del self.tk_image
             self.tk_image = ImageTk.PhotoImage(image=new_image)
+            del new_image
             if self.item is not None:
                 self.delete(self.item)
 
@@ -328,6 +330,8 @@ class ImageFrame(tk.Canvas):
         self.item = self.create_image(sx, sy, image=self.tk_image, anchor="nw")
 
     def display_animation(self, image, counter):
+        start = time.perf_counter()
+        logger.debug("start")
         if self.stop:
             self.stop = False
             return
@@ -336,29 +340,39 @@ class ImageFrame(tk.Canvas):
         counter %= image.n_frames
         image.seek(counter)
 
+        logger.debug("resize")
         new_image = self.resize_image(image)
+        logger.debug("to tk photoimage")
+        del self.tk_image
         self.tk_image = ImageTk.PhotoImage(image=new_image)
+        del new_image
+        logger.debug("delete item")
         if self.item is not None:
             self.delete(self.item)
+        logger.debug("get width and height")
         width = self.tk_image.width()
         height = self.tk_image.height()
+
+        logger.debug("change config")
         self.configure(width=width, height=height)
         sx, sy = self.center_shift(width, height)
+        logger.debug("create_image")
         self.item = self.create_image(sx, sy, image=self.tk_image, anchor="nw")
 
         # automatically adjust duration
         duration = image.info["duration"]
+        logger.debug("time count")
         end = time.perf_counter()
-        self.duration = int(duration - (end - self.start) * 1000)
-        self.start = end
+        self.duration = int(duration - (end - start) * 1000)
         logger.debug(f"self.duration = {self.duration} or 0")
         # if self.duration == 0, image will not be updated.
         self.duration = max(1, self.duration)
 
-
+        logger.debug("call after")
         self.after_id = self.after(
             self.duration, self.display_animation, image, counter + 1
         )
+        logger.debug("end")
 
     def center_shift(self, image_width, image_height):
         sx = (self.width() - image_width) / 2
@@ -379,7 +393,9 @@ class ImageFrame(tk.Canvas):
         if times == 1:
             return image
         size = (int(image.width * times), int(image.height * times))
-        return self.resize(image, size, self.up_scale if times > 1 else self.down_scale)
+
+        algo = self.up_scale if times > 1 else self.down_scale
+        return self.resize(image, size, algo)
 
     def resize(self, image, size, algorithm):
         if size[0] == 0 or size[1] == 0:
@@ -394,7 +410,8 @@ class ImageFrame(tk.Canvas):
         if times == 1:
             return image
         size = (int(image.width * times), int(image.height * times))
-        return self.resize(image, size, self.up_scale if times > 1 else self.down_scale)
+        algo = self.up_scale if times > 1 else self.down_scale
+        return self.resize(image, size, algo)
 
     def fit_in_frame_height(self, image, div):
         width = self.width() / div
@@ -404,7 +421,8 @@ class ImageFrame(tk.Canvas):
         if times == 1:
             return image
         size = (int(image.width * times), int(image.height * times))
-        return self.resize(image, size, self.up_scale if times > 1 else self.down_scale)
+        algo = self.up_scale if times > 1 else self.down_scale
+        return self.resize(image, size, algo)
 
 
 class Config:
