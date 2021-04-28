@@ -34,11 +34,11 @@ Feature
     - obey pillow
 	- [] png
 - [x] Support dual page mode
-- [] Support animation
+- [x] Support animation
 	- [x] duration auto adjustment
 	- [x] GIF
 - [x] Delete image
-- [] Configure file
+- [x] Configure file
 - [] Cache image for speed
 
 How to use
@@ -54,9 +54,15 @@ My envirionment is `python3.9.3`. However it will work on old version of `python
 - rarfile
 - py7zr
 
+- unrar(preferred), unar or bsdtar
 
 ```
 pip install natsort pillow send2trash
+```
+
+```
+sudo apt install unrar
+sudo pacman -S unrar
 ```
 
 ### Run

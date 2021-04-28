@@ -70,7 +70,7 @@ class ArchiveBase:
     def current(self):
         return self[self.i]
 
-    def delete(self):
+    def trash(self):
         logger.debug(self.file_path)
         if self.file_path is not None:
             send2trash(str(self.file_path))
@@ -100,8 +100,8 @@ class DirectoryArchive(ArchiveBase):
         else:
             return "", None
 
-    def delete(self):
-        super().delete()
+    def trash(self):
+        super().trash()
         self.next()
         file_path = self.file_list[self.i]
         self.open(file_path)
@@ -460,7 +460,7 @@ DownScale   = Lanczos
 [Keymap]
 
 DoublePage  = d
-DeleteFile  = Delete
+TrashFile   = Delete
 
 NextPage    = h
 PrevPage    = l
@@ -524,7 +524,7 @@ class SaltViewer(tk.Tk):
         super().__init__()
         self.binding = {
             "DoublePage": self.toggle_page_mode,
-            "DeleteFile": self.delete,
+            "TrashFile": self.trash,
             "NextPage": self.next_page,
             "PrevPage": self.prev_page,
             "NextArchive": self.next_archive,
@@ -635,11 +635,11 @@ class SaltViewer(tk.Tk):
         self.image.mode = "Raw"
         self.image.display(dummy_img)
 
-    def delete(self, event):
+    def trash(self, event):
         if messagebox.askokcancel("Delete file?", "Delete file?"):
             print("Deleted.")
             self.current_page()
-            self.archive.delete()
+            self.archive.trash()
         else:
             print("Cancelled")
 
