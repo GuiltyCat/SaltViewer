@@ -51,6 +51,14 @@ class ArchiveBase:
     def __len__(self):
         return len(self.file_list)
 
+    def head(self):
+        self.i = 0
+        return self[self.i]
+
+    def tail(self):
+        self.i = len(self) - 1
+        return self[self.i]
+
     def next(self):
         self.i = min(self.i + 1, len(self) - 1)
         return self[self.i]
@@ -114,7 +122,7 @@ class ZipArchive(ArchiveBase):
         with zipfile.ZipFile(fp) as f:
             self.file_list = natsorted(f.namelist())
 
-        self.file_list = self.file_list[1:]
+        self.file_list = [f for f in self.file_list if f[-1] != "/"]
         logger.debug(self.file_list)
 
     def __getitem__(self, i):
@@ -150,7 +158,7 @@ class RarArchive(ArchiveBase):
         with rarfile.RarFile(fp) as f:
             self.file_list = natsorted(f.namelist())
 
-        self.file_list = self.file_list[1:]
+        self.file_list = [f for f in self.file_list if f[-1] != "/"]
         logger.debug(self.file_list)
 
     def __getitem__(self, i):
@@ -182,7 +190,7 @@ class SevenZipArchive(ArchiveBase):
         with py7zr.SevenZipFile(fp) as f:
             self.file_list = natsorted(f.getnames())
 
-        self.file_list = self.file_list[1:]
+        self.file_list = [f for f in self.file_list if f[-1] != "/"]
         logger.debug(self.file_list)
 
     def __getitem__(self, i):
@@ -440,31 +448,33 @@ class SaltViewer(tk.Tk):
         print(self.config.keymap)
         print(self.config.setting)
         for name, key in self.config.keymap.items():
-            func = self.binding[name]
-            self.bind(f"<KeyPress-{key}>", func)
+            func = self.binding.get(name)
+            if name is None:
+                print(f"Such operation is not supported: {name}")
 
-        # binding = {
-        #    "l": self.prev_page,
-        #    "h": self.next_page,
-        #    "d": self.toggle_page_mode,
-        #    "o": self.toggle_order,
-        #    "q": self.quit,
-        # }
-        # for k, v in binding.items():
+            if len(key) == 1:
+                self.bind(f"<KeyPress-{key}>", func)
 
-        # self.bind("<Delete>", self.delete)
+            if key == "Delete":
+                self.bind("<Delete>", func)
 
-    def head(self):
-        pass
+    def head(self, event):
+        self.archive.head()
+        self.current_page()
 
-    def tail(self):
-        pass
+    def tail(self, event):
+        self.archive.tail()
+        self.current_page()
 
-    def next_archive(self):
-        pass
+    def next_archive(self, event):
+        file_path = self.archive.file_path
+        archive = DirectoryArchive(file_path)
+        self.open(archive.next()[0])
 
-    def prev_archive(self):
-        pass
+    def prev_archive(self, event):
+        file_path = self.archive.file_path
+        archive = DirectoryArchive(file_path)
+        self.open(archive.prev()[0])
 
     def construct_gui(self):
         self.main_frame = ttk.Frame(self)
@@ -566,10 +576,14 @@ class SaltViewer(tk.Tk):
             return DirectoryArchive(file_path, data)
 
     def open_file(self, file_path, data=None):
-        self.title(
-            f"{self.archive.file_path}/{file_path}"
-            + f":({self.archive.i}/{len(self.archive)})"
-        )
+        if self.archive.file_path != file_path:
+            self.title(
+                f"{self.archive.file_path}/{file_path}"
+                + f":({self.archive.i}/{len(self.archive)})"
+            )
+        else:
+            self.title(f"{file_path}:({self.archive.i}/{len(self.archive)})")
+
         file_path = Path(file_path)
         logger.debug(file_path)
         suffix = file_path.suffix.lower()
