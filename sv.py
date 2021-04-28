@@ -241,6 +241,7 @@ class ImageFrame(tk.Canvas):
 
         self.fit_width = True
         self.fit_height = True
+        self.title = ""
 
         self.up_scale = Image.NEAREST
         self.down_scale = Image.NEAREST
@@ -303,6 +304,7 @@ class ImageFrame(tk.Canvas):
         self.image2 = image2
         if getattr(image, "is_animated", False):
             self.stop = False
+            self.start = time.perf_counter()
             duration = image.info["duration"]
             logger.debug(f"duration = {duration}")
             return self.display_animation(image, 0)
@@ -331,6 +333,8 @@ class ImageFrame(tk.Canvas):
 
     def display_animation(self, image, counter):
         start = time.perf_counter()
+        self.fps = 1.0 / (start - self.start)
+        self.start = start
         logger.debug("start")
         if self.stop:
             self.stop = False
@@ -361,6 +365,9 @@ class ImageFrame(tk.Canvas):
 
         # automatically adjust duration
         duration = image.info["duration"]
+        self.master.master.title(
+            f"{self.title}:{counter}/{image.n_frames}:fps={self.fps:.2f}/{1/(duration/1000):.2f}"
+        )
         logger.debug("time count")
         end = time.perf_counter()
         self.duration = int(duration - (end - start) * 1000)
@@ -447,8 +454,8 @@ PageOrder  = right2left
 # | Bicubic  | ***                 | ***               | **          |
 # | Lanczos  | ****                | ****              | *           |
 
-UpScale     = Nearest
-DownScale   = Nearest
+UpScale     = Lanczos
+DownScale   = Lanczos
 
 [Keymap]
 
@@ -715,13 +722,15 @@ class SaltViewer(tk.Tk):
             return DirectoryArchive(file_path, data)
 
     def open_file(self, file_path, data=None):
+
         if self.archive.file_path != file_path:
-            self.title(
-                f"{self.archive.file_path}/{file_path}"
-                + f":({self.archive.i}/{len(self.archive)})"
-            )
+            title = f"{self.archive.file_path}/{file_path}"
+            +f":({self.archive.i}/{len(self.archive)})"
         else:
-            self.title(f"{file_path}:({self.archive.i}/{len(self.archive)})")
+            title = f"{file_path}:({self.archive.i+1}/{len(self.archive)})"
+
+        self.title(title)
+        self.image.title = title
 
         file_path = Path(file_path)
         logger.debug(file_path)
