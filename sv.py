@@ -400,13 +400,13 @@ class Config:
                 config[row[0].strip()] = row[1].strip()
 
     def write_default(self, file_path):
-        config = """
+        config = """\
 [Setting]
 
-# Fit mode. Width, Height or Both
-Fit = Both
+# Width, Height or Both
+FitMode = Both
 
-# Default page type. true or false.
+# true or false.
 DoublePage = False
 
 # right2left or left2right
@@ -425,16 +425,23 @@ PageOrder  = right2left
 DownScale   = Nearest
 UpScale     = Nearest
 
-
 [Keymap]
 
 DoublePage  = d
 DeleteFile  = Delete
+
 NextPage    = h
 PrevPage    = l
+
 NextArchive = j
 PrevArchive = k
+
+FitWidth    = W
+FitHeight   = H
+FitBoth     = B
+
 PageOrder   = o
+
 Quit        = q
 Head        = g
 Tail        = G
@@ -455,6 +462,9 @@ class SaltViewer(tk.Tk):
             "NextArchive": self.next_archive,
             "PrevArchive": self.prev_archive,
             "PageOrder": self.toggle_order,
+            "FitWidth": self.fit_width,
+            "FitHeight": self.fit_height,
+            "FitBoth": self.fit_both,
             "Quit": self.quit,
             "Head": self.head,
             "Tail": self.tail,
@@ -471,6 +481,18 @@ class SaltViewer(tk.Tk):
 
         self.load_config()
 
+    def fit_width(self, event):
+        self._change_image_fit_mode("Width")
+        self.current_page()
+
+    def fit_height(self, event):
+        self._change_image_fit_mode("Height")
+        self.current_page()
+
+    def fit_both(self, event):
+        self._change_image_fit_mode("Both")
+        self.current_page()
+
     def load_config(self):
         for name, key in self.config.keymap.items():
             func = self.binding.get(name)
@@ -484,7 +506,7 @@ class SaltViewer(tk.Tk):
                 self.bind("<Delete>", func)
 
         for name, key in self.config.setting.items():
-            if name == "Fit":
+            if name == "FitMode":
                 self._change_image_fit_mode(key)
             if name == "DoublePage":
                 self.double_page = True if key == "true" else False
@@ -695,6 +717,7 @@ def main():
     parser.add_argument(
         "--config", help="configuration file path", type=str, default="sv.config"
     )
+
     args = parser.parse_args()
 
     sv = SaltViewer(args.config)
