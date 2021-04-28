@@ -28,14 +28,6 @@ ch.setFormatter(formatter)
 logger.addHandler(ch)
 
 
-class AnimationGIF:
-    def __init__(self):
-        pass
-
-    def open(self, path):
-        pass
-
-
 class ArchiveBase:
     def __init__(self):
         self.file_path = None
