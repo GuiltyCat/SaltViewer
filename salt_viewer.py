@@ -173,10 +173,13 @@ class RarArchive(ArchiveBase):
         logger.debug(self.file_list)
 
     def __getitem__(self, i):
+        logger.debug("__getitem__")
         self.i = i
         file_name = ""
         file_byte = None
+        logger.debug("to byte")
         fp = self.file_path if self.data is None else io.BytesIO(self.data)
+        logger.debug("read file")
         if 0 <= i < len(self):
             with rarfile.RarFile(fp) as f:
                 file_name = Path(self.file_list[i])
@@ -185,6 +188,7 @@ class RarArchive(ArchiveBase):
         logger.debug(f"self.i={self.i}")
         logger.debug(self.file_list[i])
         logger.debug(file_name)
+        logger.debug("return")
         return file_name, io.BytesIO(file_byte)
 
 
@@ -194,31 +198,45 @@ class SevenZipArchive(ArchiveBase):
         self.open(file_path, data)
 
     def open(self, file_path, data=None):
+        logger.debug("called")
         self.file_path = file_path
         self.data = None
         self.file_list = []
+        logger.debug("to bytes")
         fp = self.file_path if self.data is None else io.BytesIO(self.data)
+        logger.debug("open 7z")
         with py7zr.SevenZipFile(fp) as f:
             self.file_list = natsorted(f.getnames())
 
         self.file_list = [f for f in self.file_list if f[-1] != "/"]
         logger.debug(self.file_list)
+        logger.debug("return")
 
     def __getitem__(self, i):
+        logger.debug("__getitem__")
         self.i = i
         file_name = ""
         file_byte = None
+        logger.debug("to byte")
         fp = self.file_path if self.data is None else io.BytesIO(self.data)
+        logger.debug("open 7z")
         if 0 <= i < len(self):
+            logger.debug("with open")
             with py7zr.SevenZipFile(fp) as f:
                 file_name = Path(self.file_list[i])
-                for name, data in f.read([self.file_list[i]]).items():
+                logger.debug("read")
+                data = f.read([self.file_list[i]])
+                logger.debug("name, data")
+                for name, data in data.items():
+                    logger.debug("extract data")
                     file_byte = data
+            logger.debug("read end")
 
         logger.debug(f"file_bype = {file_byte}")
         logger.debug(f"self.i={self.i}")
         logger.debug(self.file_list[i])
         logger.debug(file_name)
+        logger.debug("return")
         return file_name, file_byte
 
 
