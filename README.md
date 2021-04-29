@@ -50,14 +50,20 @@ How to use
 
 My envirionment is `python3.9.3`. However it will work on old version of `python`.
 
-- natsort
-- pillow
-- send2trash
-- rarfile
-- py7zr
+Install via pip.
+
 - cairosvg
+- natsort
+- pdf2python
+- pillow
+- py7zr
+- rarfile
+- send2trash
+
+Install via package manager or other method.
 
 - unrar(preferred), unar or bsdtar
+- poppler
 
 ```
 pip install natsort pillow send2trash
