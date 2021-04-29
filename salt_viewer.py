@@ -103,12 +103,6 @@ class DirectoryArchive(ArchiveBase):
         else:
             return "", None
 
-    def trash(self):
-        super().trash()
-        self.next()
-        file_path = self.file_list[self.i]
-        self.open(file_path)
-
 
 class ZipArchive(ArchiveBase):
     def __init__(self, file_path, data=None):
@@ -677,10 +671,13 @@ class SaltViewer(tk.Tk):
         self.image.display(dummy_img)
 
     def trash(self, event):
-        if messagebox.askokcancel("Delete file?", "Delete file?"):
+        if messagebox.askokcancel("Trash file?", "Trash file?"):
             print("Deleted.")
-            self.current_page()
+            file_path = self.archive.file_path
+            archive = DirectoryArchive(file_path)
+            next_file_path = archive.next()[0]
             self.archive.trash()
+            self.open(next_file_path)
         else:
             print("Cancelled")
 
@@ -767,7 +764,7 @@ class SaltViewer(tk.Tk):
     def open_file(self, file_path, data=None):
 
         title = f"{file_path}:({self.archive.i+1}/{len(self.archive)})"
-        if self.archive.file_path != file_path:
+        if self.archive.file_path.stem != str(file_path.parent):
             title = f"{self.archive.file_path}/" + title
 
         self.title(title)
@@ -1130,9 +1127,7 @@ def main():
     parser.add_argument(
         "--config", help="configuration file path", type=str, default=".svrc"
     )
-    parser.add_argument(
-        "--icon", help="configuration file path", action='store_true'
-        )
+    parser.add_argument("--icon", help="configuration file path", action="store_true")
     parser.add_argument("--debug", help="debug mode", action="store_true")
 
     args = parser.parse_args()
@@ -1143,8 +1138,6 @@ def main():
 
     if args.debug:
         logger.setLevel(logging.DEBUG)
-
-
 
     sv = SaltViewer(args.config)
     sv.open(Path(args.path))
