@@ -5,7 +5,7 @@ with open("README.md", "r") as f:
 
 setuptools.setup(
     name="salt-viewer",
-    version="0.1.0",
+    version="0.1.1",
     description="Simple image viewer",
     long_description=description,
     long_description_content_type='text/markdown',
