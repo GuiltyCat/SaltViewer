@@ -37,6 +37,7 @@ Feature
 - [x] Support animation
 	- [x] duration auto adjustment
 	- [x] GIF
+- [x] Repetition key
 - [x] Delete image
 - [x] Configure file
 - [] Cache image for speed
@@ -71,4 +72,33 @@ sudo pacman -S unrar
 python archived_image_viewer.py <image file | archive file>
 ```
 
+### Keymap
 
+
+```
+[Keymap]
+
+DoublePage  = d
+TrashFile   = Delete
+
+NextPage    = h
+PrevPage    = l
+
+# You can use repetition for NextPage and PrevPage.
+# For example, 2h means goto next 2 page, type 100h go to next 100 page.
+# If you want to reset number, type <Esc>, <Ctrl+[> or simply <[>
+
+NextArchive = j
+PrevArchive = k
+
+FitNone     = N
+FitWidth    = W
+FitHeight   = H
+FitBoth     = B
+
+PageOrder   = o
+
+Quit        = q
+Head        = g
+Tail        = G
+```
