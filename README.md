@@ -30,9 +30,10 @@ Feature
 	- [x] Zip
 	- [x] Rar
 	- [x] 7z
+	- [ ] pdf
 - [x] Support image type
     - obey pillow
-	- [] png
+	- svg
 - [x] Support dual page mode
 - [x] Support animation
 	- [x] duration auto adjustment
@@ -40,7 +41,7 @@ Feature
 - [x] Repetition key
 - [x] Delete image
 - [x] Configure file
-- [] Cache image for speed
+- [ ] Cache image for speed
 
 How to use
 -----------
@@ -54,6 +55,7 @@ My envirionment is `python3.9.3`. However it will work on old version of `python
 - send2trash
 - rarfile
 - py7zr
+- cairosvg
 
 - unrar(preferred), unar or bsdtar
 

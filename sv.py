@@ -9,6 +9,7 @@ import tkinter.ttk as ttk
 import zipfile
 from pathlib import Path
 
+import cairosvg
 import py7zr
 import rarfile
 from natsort import natsorted
@@ -211,6 +212,18 @@ class SevenZipArchive(ArchiveBase):
         logger.debug(self.file_list[i])
         logger.debug(file_name)
         return file_name, file_byte
+
+
+class PdfArchive(ArchiveBase):
+    def __init__(self, file_path, data=None):
+        super().__init__()
+        self.open(file_path, data)
+
+    def open(self, file_path, data=None):
+        pass
+
+    def __getitem__(self, i):
+        self.i = i
 
 
 class ImageFrame(tk.Canvas):
@@ -785,6 +798,8 @@ class SaltViewer(tk.Tk):
         elif suffix in [".tiff"]:
             # can have multi images
             pass
+        elif suffix in [".svg"]:
+            return self.open_svg(file_path, data)
         elif suffix in [".zip", ".rar", ".7z"]:
             self.open(file_path, data)
         else:
@@ -807,6 +822,14 @@ class SaltViewer(tk.Tk):
         if getattr(image, "is_animated", False):
             self.double_page = False
         return image
+
+    def open_svg(self, image_path, data=None):
+        if data is None:
+            svg = cairosvg.svg2png(url=str(image_path))
+        else:
+            svg = cairosvg.svg2png(file_obj=data)
+        svg = io.BytesIO(svg)
+        return Image.open(svg)
 
 
 def main():
