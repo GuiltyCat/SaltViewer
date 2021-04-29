@@ -672,8 +672,8 @@ class SaltViewer(tk.Tk):
 
     def trash(self, event):
         if messagebox.askokcancel("Trash file?", "Trash file?"):
-            print("Deleted.")
             file_path = self.archive.file_path
+            print(f"Trash {file_path}")
             archive = DirectoryArchive(file_path)
             next_file_path = archive.next()[0]
             self.archive.trash()
@@ -834,7 +834,7 @@ class SaltViewer(tk.Tk):
 
 
 class Icon:
-    data = """\
+    svg = """\
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <svg
    xmlns:osb="http://www.openswatchbook.org/uri/2009/osb"
@@ -1117,6 +1117,14 @@ class Icon:
     def __init__(self):
         pass
 
+    def save_icon(self, file_path):
+        if file_path.exists():
+            print(f"{file_path} already exists. Not overwerite.")
+            return
+
+        with open(file_path, "w") as f:
+            f.write(self.svg)
+
 
 def main():
 
@@ -1133,7 +1141,7 @@ def main():
     args = parser.parse_args()
 
     if args.icon:
-        print(Icon.data)
+        Icon.save_con(args.path)
         return
 
     if args.debug:
