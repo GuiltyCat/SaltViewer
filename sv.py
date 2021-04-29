@@ -59,12 +59,14 @@ class ArchiveBase:
         self.i = len(self) - 1
         return self[self.i]
 
-    def next(self):
-        self.i = min(self.i + 1, len(self) - 1)
+    def next(self, c=1):
+        c = max(1, c)
+        self.i = min(self.i + c, len(self) - 1)
         return self[self.i]
 
-    def prev(self):
-        self.i = max(self.i - 1, 0)
+    def prev(self, c=1):
+        c = max(1, c)
+        self.i = max(self.i - c, 0)
         return self[self.i]
 
     def current(self):
@@ -366,7 +368,8 @@ class ImageFrame(tk.Canvas):
         # automatically adjust duration
         duration = image.info["duration"]
         self.master.master.title(
-            f"{self.title}:{counter}/{image.n_frames}:fps={self.fps:.2f}/{1/(duration/1000):.2f}"
+            f"{self.title}:{counter}/{image.n_frames}:"
+            + f"fps={self.fps:.2f}/{1/(duration/1000):.2f}"
         )
         logger.debug("time count")
         end = time.perf_counter()
@@ -462,6 +465,9 @@ DownScale   = Lanczos
 DoublePage  = d
 TrashFile   = Delete
 
+# You can use repetition for NextPage and PrevPage.
+# For example, 2h means goto next 2 page, type 100h go to next 100 page.
+# If you want to reset number, type <Esc>, <Ctrl+[> or simply <[>
 NextPage    = h
 PrevPage    = l
 
@@ -520,8 +526,10 @@ Tail        = G
 
 class SaltViewer(tk.Tk):
     def __init__(self, config_path):
-
         super().__init__()
+
+        self.title("SaltViewer")
+
         self.binding = {
             "DoublePage": self.toggle_page_mode,
             "TrashFile": self.trash,
@@ -547,6 +555,8 @@ class SaltViewer(tk.Tk):
 
         self.config = Config()
         self.config.open(config_path)
+
+        self.num = 0
 
         self.load_config()
 
@@ -589,6 +599,20 @@ class SaltViewer(tk.Tk):
                 self.image.select_up_scale_algorithm(key)
             elif name == "DownScale":
                 self.image.select_down_scale_algorithm(key)
+
+        self.bind("<Escape>", self.reset_num)
+        self.bind("[", self.reset_num)
+        for i in range(10):
+            self.bind(f"<KeyPress-{i}>", self.num_key)
+
+    def num_key(self, event):
+        self.num *= 10
+        self.num += int(event.char)
+        logger.debug(f"num = {self.num}")
+
+    def reset_num(self, event):
+        self.num = 0
+        logger.debug(f"num = {self.num}")
 
     def _change_image_fit_mode(self, key):
         if key == "Both":
@@ -665,8 +689,8 @@ class SaltViewer(tk.Tk):
             self.archive.prev()
         self.image.display(image, image2, self.right2left)
 
-    def _open_next(self):
-        file_path, data = self.archive.next()
+    def _open_next(self, c=1):
+        file_path, data = self.archive.next(c)
         if file_path == "":
             logger.debug("file_path is empty")
             return None
@@ -678,7 +702,8 @@ class SaltViewer(tk.Tk):
         # back to the second page then next
         if self.double_page:
             self.archive.next()
-        image = self._open_next()
+        image = self._open_next(self.num)
+        self.num = 0
         image2 = None
         if self.double_page:
             image2 = self._open_next()
@@ -686,8 +711,8 @@ class SaltViewer(tk.Tk):
             self.archive.prev()
         self.image.display(image, image2, self.right2left)
 
-    def _open_prev(self):
-        file_path, data = self.archive.prev()
+    def _open_prev(self, c=1):
+        file_path, data = self.archive.prev(c)
         if file_path == "":
             logger.debug("file_path is empty")
             return None
@@ -695,7 +720,8 @@ class SaltViewer(tk.Tk):
 
     def prev_page(self, event):
         logger.debug("called")
-        image = self._open_prev()
+        image = self._open_prev(self.num)
+        self.num = 0
         image2 = None
         if self.double_page:
             image2 = self._open_prev()
@@ -723,11 +749,9 @@ class SaltViewer(tk.Tk):
 
     def open_file(self, file_path, data=None):
 
+        title = f"{file_path}:({self.archive.i+1}/{len(self.archive)})"
         if self.archive.file_path != file_path:
-            title = f"{self.archive.file_path}/{file_path}"
-            +f":({self.archive.i}/{len(self.archive)})"
-        else:
-            title = f"{file_path}:({self.archive.i+1}/{len(self.archive)})"
+            title = f"{self.archive.file_path}/" + title
 
         self.title(title)
         self.image.title = title
@@ -792,7 +816,7 @@ def main():
         "path", help="image file or archive file", type=str, default=None
     )
     parser.add_argument(
-        "--config", help="configuration file path", type=str, default="sv.config"
+        "--config", help="configuration file path", type=str, default=".svrc"
     )
     parser.add_argument("--debug", help="debug mode", action="store_true")
 
