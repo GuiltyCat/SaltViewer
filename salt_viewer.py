@@ -205,7 +205,7 @@ class SevenZipArchive(ArchiveBase):
         logger.debug("to bytes")
         fp = self.file_path if self.data is None else io.BytesIO(self.data)
         logger.debug("open 7z")
-        with py7zr.SevenZipFile(fp) as f:
+        with py7zr.SevenZipFile(fp, mode="r") as f:
             self.file_list = natsorted(f.getnames())
 
         self.file_list = [f for f in self.file_list if f[-1] != "/"]
@@ -733,7 +733,14 @@ class SaltViewer(tk.Tk):
             file_path = self.archive.file_path
             print(f"Trash {file_path}")
             archive = DirectoryArchive(file_path)
+            if len(archive) == 1:
+                print("Archive is empty")
+                self.archive.trash()
+                self.quit(None)
+                return
             next_file_path = archive.next()[0]
+            if next_file_path == file_path:
+                next_file_path = archive.prev()[0]
             self.archive.trash()
             self.open(next_file_path)
         else:
