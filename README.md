@@ -3,6 +3,8 @@ SaltViewer
 
 Very simple image viewer on tkinter.
 
+<a href='https://svgshare.com/s/WiE' ><img src='https://svgshare.com/i/WiE.svg' title='SaltViewerIcon' /></a>
+
 Why
 -------------
 
