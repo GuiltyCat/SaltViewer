@@ -30,7 +30,7 @@ Feature
 	- [x] Zip
 	- [x] Rar
 	- [x] 7z
-	- [ ] pdf
+	- [x] pdf
 - [x] Support image type
     - obey pillow
 	- svg
