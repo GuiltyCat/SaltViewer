@@ -1213,17 +1213,22 @@ class Icon:
 
 def main():
 
+    default_config_path = str(Path.home() / ".svrc")
+
     parser = argparse.ArgumentParser(description="SaltViewer")
     parser.add_argument(
         "path", help="image file or archive file", type=str, default=None
     )
     parser.add_argument(
-        "--config", help="configuration file path", type=str, default=".svrc"
+        "--config",
+        help=f"configuration file path. default is {default_config_path}",
+        type=str,
+        default=default_config_path,
     )
     parser.add_argument("--icon", help="write icon to path", action="store_true")
     parser.add_argument(
         "--default_config",
-        help="write default configuration to path",
+        help="write default configuration to path. salt-viewer --default_config >~/.svrc",
         action="store_true",
     )
     parser.add_argument("--debug", help="debug mode", action="store_true")

@@ -1,10 +1,14 @@
 import setuptools
 
+with open("README.md", "r") as f:
+    description = f.read()
+
 setuptools.setup(
-    name="salt-viwer",
-    version="0.0.1",
+    name="salt-viewer",
+    version="0.1.0",
     description="Simple image viewer",
-    long_description="Supports many images, animation images, and archives.",
+    long_description=description,
+    long_description_content_type='text/markdown',
     url="https://github.com/GuiltyCat/SaltViewer",
     author="GuiltyCat",
     keywords="image, viewer, archive, animation",
@@ -17,5 +21,5 @@ setuptools.setup(
         "cairosvg",
     ],
     py_modules=['salt_viewer'],
-    entry_points={"console_scripts": ["sv=salt_viewer:main"]},
+    entry_points={"console_scripts": ["salt-viewer=salt_viewer:main"]},
 )
