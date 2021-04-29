@@ -530,6 +530,14 @@ Tail        = G
 
             config[row[0].strip()] = row[1].strip()
 
+    def write_default_config(self, file_path):
+        if file_path.exists():
+            print(f"{file_path} already exists. Not overwerite.")
+            return
+
+        with open(file_path, "w") as f:
+            f.write(self.default_config)
+
 
 class SaltViewer(tk.Tk):
     def __init__(self, config_path):
@@ -1135,14 +1143,24 @@ def main():
     parser.add_argument(
         "--config", help="configuration file path", type=str, default=".svrc"
     )
-    parser.add_argument("--icon", help="configuration file path", action="store_true")
+    parser.add_argument("--icon", help="write icon to path", action="store_true")
+    parser.add_argument(
+        "--default_config",
+        help="write default configuration to path",
+        action="store_true",
+    )
     parser.add_argument("--debug", help="debug mode", action="store_true")
 
     args = parser.parse_args()
 
+    args.path = Path(args.path)
+
     if args.icon:
         Icon.save_con(args.path)
         return
+
+    if args.default_config:
+        Config.write_default_config(args.path)
 
     if args.debug:
         logger.setLevel(logging.DEBUG)
