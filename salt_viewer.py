@@ -10,6 +10,7 @@ import zipfile
 from pathlib import Path
 
 import cairosvg
+import pdf2image
 import py7zr
 import rarfile
 from natsort import natsorted
@@ -211,13 +212,26 @@ class SevenZipArchive(ArchiveBase):
 class PdfArchive(ArchiveBase):
     def __init__(self, file_path, data=None):
         super().__init__()
+        self.images = []
         self.open(file_path, data)
 
     def open(self, file_path, data=None):
-        pass
+
+        self.file_path = file_path
+        if data is None:
+            self.images = pdf2image.convert_from_path(file_path)
+        else:
+            self.images = pdf2image.convert_from_bytes(data.read())
+
+        self.file_list = [Path(str(i) + ".png") for i in range(len(self.images))]
 
     def __getitem__(self, i):
         self.i = i
+        file_name = self.file_list[self.i]
+        image = self.images[self.i]
+        image_bytes = io.BytesIO()
+        image.save(image_bytes, format="PNG")
+        return file_name, image_bytes
 
 
 class ImageFrame(tk.Canvas):
@@ -544,7 +558,7 @@ class SaltViewer(tk.Tk):
         super().__init__()
 
         self.title("SaltViewer")
-        icon = self.open_svg(None, io.StringIO(Icon.data))
+        icon = self.open_svg(None, io.StringIO(Icon.svg))
         icon = icon.resize((100, 100))
         self.icon = ImageTk.PhotoImage(image=icon)
         self.iconphoto(False, self.icon)
@@ -766,6 +780,8 @@ class SaltViewer(tk.Tk):
             return RarArchive(file_path, data)
         elif suffix == ".7z":
             return SevenZipArchive(file_path, data)
+        elif suffix == ".pdf":
+            return PdfArchive(file_path, data)
         else:
             return DirectoryArchive(file_path, data)
 
@@ -809,7 +825,7 @@ class SaltViewer(tk.Tk):
             pass
         elif suffix in [".svg"]:
             return self.open_svg(file_path, data)
-        elif suffix in [".zip", ".rar", ".7z"]:
+        elif suffix in [".zip", ".rar", ".7z", ".pdf"]:
             self.open(file_path, data)
         else:
             logger.debug(f"Not supported.:{suffix}")
