@@ -1,56 +1,57 @@
 SaltViewer
 ===============
 
-Now on development.
+Very simple image viewer on tkinter.
 
 Why
 -------------
 
-I use mcomix for a long time. However,
+I use mcomix on Linux for a long time. 
+However, default mcomix do not support 
 
-- mcomix do not support GIF animation.
-- mcomix do not support switch rm command and trash command.
-- mcomix3 do not support delete command.
+- GIF animation
+- Trash command
 
 Thus I need mcomix alternative.
-I need these functions.
+I want to treat 
 
-- Support many image type
-- Support archive like zip, rar, 7z without extraction
-- Support animation image like GIF.
-- Support delete and trash command.
+- Many image type
+- Archive files, like zip, rar, 7z
+- Animation image like GIF
+- Trash image or archive
 
 
 Feature
 ------------
 
-- [x] Pure python
-- [x] Single script
-- [] Support archive
-	- [x] Zip
-	- [x] Rar
-	- [x] 7z
-	- [x] pdf
-- [x] Support image type
-    - obey pillow
+- Single script
+- Support archive
+	- Zip, Rar, 7z, Pdf
+- Support many image types
+    - pillow
 	- svg
-- [x] Support dual page mode
-- [x] Support animation
-	- [x] duration auto adjustment
-	- [x] GIF
-- [x] Repetition key
-- [x] Delete image
-- [x] Configure file
-- [ ] Cache image for speed
+- Support dual page mode
+- Support animation
+	- duration auto adjustment
+	- GIF, PNG
+- Repetition key
+	- For example `100h` means go to next 100 page.
+- Delete image
+- Configure file
 
-How to use
+
+How to install
 -----------
 
-### Install Requirements
 
-My envirionment is `python3.9.3`. However it will work on old version of `python`.
+```
+pip install salt-viewer
+```
 
-Install via pip.
+I use `python3.9.3`. However it will work on old version greater than `python3.5`.
+
+
+This scripts use these pip modules.
 
 - cairosvg
 - natsort
@@ -60,27 +61,33 @@ Install via pip.
 - rarfile
 - send2trash
 
-Install via package manager or other method.
+And use these packages.
 
 - unrar(preferred), unar or bsdtar
+	- For rarfile
 - poppler
+	- For pdf2python
+
+
+How to Use
+---------
+
+Now you can use `salt-viewer` command.
 
 ```
-pip install natsort pillow send2trash
+salt-viewer <image file | archive file>
 ```
 
-```
-sudo apt install unrar
-sudo pacman -S unrar
-```
-
-### Run
+If you use linux, you should use alias for time saving.
 
 ```
-python archived_image_viewer.py <image file | archive file>
+alias sv=salt-viewer
 ```
 
-### Keymap
+Keymap
+----------
+
+Cutout from default configuration file.
 
 
 ```
@@ -110,3 +117,9 @@ Quit        = q
 Head        = g
 Tail        = G
 ```
+
+
+TODO
+--------
+
+- Cache image for speed
