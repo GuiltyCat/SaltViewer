@@ -111,25 +111,33 @@ class ZipArchive(ArchiveBase):
         self.open(file_path, data)
 
     def open(self, file_path, data=None):
+        logger.debug("called")
         self.file_path = file_path
         self.data = data
         self.file_list = []
 
+        logger.debug("to byte")
         fp = self.file_path if data is None else io.BytesIO(self.data)
 
+        logger.debug("zip open")
         with zipfile.ZipFile(fp) as f:
             self.file_list = natsorted(f.namelist())
 
+        logger.debug("to list")
         self.file_list = [f for f in self.file_list if f[-1] != "/"]
         logger.debug(self.file_list)
+        logger.debug("return")
 
     def __getitem__(self, i):
+        logger.debug("__getitem__")
         self.i = i
         file_name = ""
         file_byte = None
 
+        logger.debug("to byte")
         fp = self.file_path if self.data is None else io.BytesIO(self.data)
 
+        logger.debug("open zip")
         if 0 <= i < len(self):
             with zipfile.ZipFile(fp) as f:
                 file_name = Path(self.file_list[i])
@@ -138,6 +146,7 @@ class ZipArchive(ArchiveBase):
         logger.debug(f"self.i={self.i}")
         logger.debug(self.file_list[i])
         logger.debug(file_name)
+        logger.debug("return")
         return file_name, io.BytesIO(file_byte)
 
 
@@ -147,15 +156,19 @@ class RarArchive(ArchiveBase):
         self.open(file_path, data)
 
     def open(self, file_path, data=None):
+        logger.debug("called")
         self.file_path = file_path
         self.data = data
         self.file_list = []
 
+        logger.debug("to byte")
         fp = self.file_path if data is None else io.BytesIO(self.data)
 
+        logger.debug("open rar")
         with rarfile.RarFile(fp) as f:
             self.file_list = natsorted(f.namelist())
 
+        logger.debug("open rar")
         self.file_list = [f for f in self.file_list if f[-1] != "/"]
         logger.debug(self.file_list)
 
@@ -226,12 +239,17 @@ class PdfArchive(ArchiveBase):
         self.file_list = [Path(str(i) + ".png") for i in range(len(self.images))]
 
     def __getitem__(self, i):
+        logger.debug("getitem")
         self.i = i
         file_name = self.file_list[self.i]
         image = self.images[self.i]
-        image_bytes = io.BytesIO()
-        image.save(image_bytes, format="PNG")
-        return file_name, image_bytes
+        print(type(image))
+        logger.debug("io.BytesIO")
+        # image_bytes = io.BytesIO()
+        logger.debug("image.save")
+        # image.save(image_bytes, format="PNG")
+        logger.debug("return")
+        return file_name, image
 
 
 class ImageFrame(tk.Canvas):
@@ -726,6 +744,7 @@ class SaltViewer(tk.Tk):
         self.image.display(image, image2, self.right2left)
 
     def _open_next(self, c=1):
+        logger.debug("called")
         file_path, data = self.archive.next(c)
         if file_path == "":
             logger.debug("file_path is empty")
@@ -737,6 +756,7 @@ class SaltViewer(tk.Tk):
 
         # back to the second page then next
         if self.double_page:
+            logger.debug("double_page")
             self.archive.next()
         image = self._open_next(self.num)
         self.num = 0
@@ -773,20 +793,28 @@ class SaltViewer(tk.Tk):
         self.image.display(image)
 
     def open_archive(self, file_path, data=None):
+        logger.debug("called")
         suffix = Path(file_path).suffix.lower()
         if suffix == ".zip":
+            logger.debug("zip")
             return ZipArchive(file_path, data)
         elif suffix == ".rar":
+            logger.debug("rar")
             return RarArchive(file_path, data)
         elif suffix == ".7z":
+            logger.debug("7z")
             return SevenZipArchive(file_path, data)
         elif suffix == ".pdf":
+            logger.debug("pdf")
             return PdfArchive(file_path, data)
         else:
+            logger.debug("directory")
             return DirectoryArchive(file_path, data)
 
     def open_file(self, file_path, data=None):
+        logger.debug("called")
 
+        logger.debug("set title")
         title = f"{file_path}:({self.archive.i+1}/{len(self.archive)})"
         if self.archive.file_path.stem != str(file_path.parent):
             title = f"{self.archive.file_path}/" + title
@@ -832,12 +860,18 @@ class SaltViewer(tk.Tk):
             return None
 
     def _open_by_path_or_data(self, path, data=None):
+
         if data is None:
             return Image.open(path)
-        else:
+
+        if isinstance(data, io.BytesIO):
             return Image.open(data)
 
+        # if PIL.Image
+        return data
+
     def open_image(self, image_path, data=None):
+        logger.debug("called")
         image = self._open_by_path_or_data(image_path, data)
         if image is None:
             messagebox.showwarning("Image open failed.", "Image open failed.")
@@ -846,6 +880,8 @@ class SaltViewer(tk.Tk):
         # Force single page mode when animation
         if getattr(image, "is_animated", False):
             self.double_page = False
+
+        logger.debug("return")
         return image
 
     def open_svg(self, image_path, data=None):
