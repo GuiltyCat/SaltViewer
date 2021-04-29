@@ -542,6 +542,10 @@ class SaltViewer(tk.Tk):
         super().__init__()
 
         self.title("SaltViewer")
+        icon = self.open_svg("icon.svg")
+        icon = icon.resize((100, 100))
+        self.icon = ImageTk.PhotoImage(image=icon)
+        self.iconphoto(False, self.icon)
 
         self.binding = {
             "DoublePage": self.toggle_page_mode,
