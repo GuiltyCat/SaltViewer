@@ -1238,7 +1238,7 @@ def main():
     args.path = Path(args.path)
 
     if args.icon:
-        Icon.save_con(args.path)
+        Icon().save_icon(args.path)
         return
 
     if args.default_config:
