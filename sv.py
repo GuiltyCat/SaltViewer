@@ -1130,12 +1130,21 @@ def main():
     parser.add_argument(
         "--config", help="configuration file path", type=str, default=".svrc"
     )
+    parser.add_argument(
+        "--icon", help="configuration file path", action='store_true'
+        )
     parser.add_argument("--debug", help="debug mode", action="store_true")
 
     args = parser.parse_args()
 
+    if args.icon:
+        print(Icon.data)
+        return
+
     if args.debug:
         logger.setLevel(logging.DEBUG)
+
+
 
     sv = SaltViewer(args.config)
     sv.open(Path(args.path))
