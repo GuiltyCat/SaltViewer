@@ -80,7 +80,9 @@ class ArchiveBase:
     def trash(self):
         logger.debug(self.file_path)
         if self.file_path is not None:
-            from send2trash import send2trash
+            if 'send2trash' not in globals():
+                global send2trash
+                from send2trash import send2trash
             send2trash(str(self.file_path))
 
 
@@ -111,8 +113,9 @@ class DirectoryArchive(ArchiveBase):
 
 class ZipArchive(ArchiveBase):
     def __init__(self, file_path, data=None):
-        global zipfile
-        import zipfile
+        if "zipfile" not in globals():
+            global zipfile
+            import zipfile
         super().__init__()
         self.open(file_path, data)
 
@@ -158,8 +161,9 @@ class ZipArchive(ArchiveBase):
 
 class RarArchive(ArchiveBase):
     def __init__(self, file_path, data=None):
-        global rarfile
-        import rarfile
+        if "rarfile" not in "globals":
+            global rarfile
+            import rarfile
         super().__init__()
         self.open(file_path, data)
 
@@ -202,7 +206,9 @@ class RarArchive(ArchiveBase):
 
 class SevenZipArchive(ArchiveBase):
     def __init__(self, file_path, data=None):
-        import py7zr
+        if "py7zr" not in globals():
+            global py7zr
+            import py7zr
         super().__init__()
         self.open(file_path, data)
 
@@ -251,8 +257,9 @@ class SevenZipArchive(ArchiveBase):
 
 class PdfArchive(ArchiveBase):
     def __init__(self, file_path, data=None):
-        global pdf2image
-        import pdf2image
+        if "pdf2image" not in globals():
+            global pdf2image
+            import pdf2image
         super().__init__()
         self.images = []
         self.open(file_path, data)
