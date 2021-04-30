@@ -50,6 +50,12 @@ How to install
 pip install salt-viewer
 ```
 
+or
+
+```
+yay -S salt-viewer
+```
+
 I use `python3.9.3`. However it will work on old version greater than `python3.5`.
 
 
