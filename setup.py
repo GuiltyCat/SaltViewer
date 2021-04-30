@@ -19,6 +19,7 @@ setuptools.setup(
         "rarfile",
         "py7zr",
         "cairosvg",
+        "pdf2image",
     ],
     py_modules=['salt_viewer'],
     entry_points={"console_scripts": ["salt-viewer=salt_viewer:main"]},
