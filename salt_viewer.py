@@ -1,21 +1,4 @@
-import argparse
-import csv
-import io
 import logging
-import time
-import tkinter as tk
-import tkinter.messagebox as messagebox
-import tkinter.ttk as ttk
-import zipfile
-from pathlib import Path
-
-import cairosvg
-import pdf2image
-import py7zr
-import rarfile
-from natsort import natsorted
-from PIL import Image, ImageTk
-from send2trash import send2trash
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.WARNING)
@@ -28,6 +11,26 @@ formatter = logging.Formatter(
 )
 ch.setFormatter(formatter)
 logger.addHandler(ch)
+
+logger.setLevel(logging.DEBUG)
+
+logger.debug("default import")
+import argparse
+import csv
+import io
+import time
+import tkinter as tk
+import tkinter.messagebox as messagebox
+import tkinter.ttk as ttk
+from pathlib import Path
+
+logger.debug("natsorted")
+from natsort import natsorted
+logger.debug("PIL")
+from PIL import Image, ImageTk
+logger.debug("send2trash")
+logger.debug("io")
+
 
 
 class ArchiveBase:
@@ -77,6 +80,7 @@ class ArchiveBase:
     def trash(self):
         logger.debug(self.file_path)
         if self.file_path is not None:
+            from send2trash import send2trash
             send2trash(str(self.file_path))
 
 
@@ -107,6 +111,8 @@ class DirectoryArchive(ArchiveBase):
 
 class ZipArchive(ArchiveBase):
     def __init__(self, file_path, data=None):
+        global zipfile
+        import zipfile
         super().__init__()
         self.open(file_path, data)
 
@@ -152,6 +158,8 @@ class ZipArchive(ArchiveBase):
 
 class RarArchive(ArchiveBase):
     def __init__(self, file_path, data=None):
+        global rarfile
+        import rarfile
         super().__init__()
         self.open(file_path, data)
 
@@ -194,6 +202,7 @@ class RarArchive(ArchiveBase):
 
 class SevenZipArchive(ArchiveBase):
     def __init__(self, file_path, data=None):
+        import py7zr
         super().__init__()
         self.open(file_path, data)
 
@@ -242,6 +251,8 @@ class SevenZipArchive(ArchiveBase):
 
 class PdfArchive(ArchiveBase):
     def __init__(self, file_path, data=None):
+        global pdf2image
+        import pdf2image
         super().__init__()
         self.images = []
         self.open(file_path, data)
@@ -591,14 +602,18 @@ Tail        = G
 
 class SaltViewer(tk.Tk):
     def __init__(self, config_path):
+        logger.debug("tk.Tk init")
         super().__init__()
 
+        logger.debug("set title")
         self.title("SaltViewer")
-        icon = self.open_svg(None, io.StringIO(Icon.svg))
-        icon = icon.resize((100, 100))
-        self.icon = ImageTk.PhotoImage(image=icon)
-        self.iconphoto(False, self.icon)
 
+        # icon = self.open_svg(None, io.StringIO(Icon.svg))
+        # icon = icon.resize((100, 100))
+        # self.icon = ImageTk.PhotoImage(image=icon)
+        # self.iconphoto(False, self.icon)
+
+        logger.debug("binding functions")
         self.binding = {
             "DoublePage": self.toggle_page_mode,
             "TrashFile": self.trash,
@@ -616,13 +631,17 @@ class SaltViewer(tk.Tk):
             "Tail": self.tail,
         }
 
+        logger.debug("style")
         self.style = ttk.Style()
+
         self.construct_gui()
 
         self.double_page = False
         self.right2left = True
 
+        logger.debug("read config")
         self.config = Config()
+        logger.debug("config open")
         self.config.open(config_path)
 
         self.num = 0
@@ -646,6 +665,7 @@ class SaltViewer(tk.Tk):
         self.current_page()
 
     def load_config(self):
+        logger.debug("called")
         for name, key in self.config.keymap.items():
             func = self.binding.get(name)
             if name is None:
@@ -673,6 +693,7 @@ class SaltViewer(tk.Tk):
         self.bind("[", self.reset_num)
         for i in range(10):
             self.bind(f"<KeyPress-{i}>", self.num_key)
+        logger.debug("return")
 
     def num_key(self, event):
         self.num *= 10
@@ -716,6 +737,7 @@ class SaltViewer(tk.Tk):
         self.open(archive.prev()[0])
 
     def construct_gui(self):
+        logger.debug("called")
         self.main_frame = ttk.Frame(self)
         self.main_frame.pack(expand=True, fill="both", anchor="center")
         self.main_frame.grid_rowconfigure([0], weight=1)
@@ -727,6 +749,7 @@ class SaltViewer(tk.Tk):
         dummy_img = Image.new("RGB", (10, 10), color="black")
         self.image.mode = "Raw"
         self.image.display(dummy_img)
+        logger.debug("return")
 
     def trash(self, event):
         if messagebox.askokcancel("Trash file?", "Trash file?"):
@@ -910,6 +933,7 @@ class SaltViewer(tk.Tk):
         return image
 
     def open_svg(self, image_path, data=None):
+        import cairosvg
         if data is None:
             svg = cairosvg.svg2png(url=str(image_path))
         else:
@@ -1238,17 +1262,23 @@ def main():
     args.path = Path(args.path)
 
     if args.icon:
+        logger.debug("save icon")
         Icon().save_icon(args.path)
         return
 
     if args.default_config:
+        logger.debug("write default config")
         Config.write_default_config(args.path)
 
     if args.debug:
+        logger.debug("setLevel DEBUG")
         logger.setLevel(logging.DEBUG)
 
+    logger.debug("SaltViewer Init")
     sv = SaltViewer(args.config)
+    logger.debug("opee args.path")
     sv.open(Path(args.path))
+    logger.debug("mainloop")
     sv.mainloop()
 
 
