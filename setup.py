@@ -15,8 +15,8 @@ requirements = [
 ]
 setuptools.setup(
     name="salt-viewer",
-    version="0.1.2",
-    description="Simple image viewer",
+    version="0.1.3",
+    description="Simple (archived) image viewer",
     long_description=description,
     long_description_content_type="text/markdown",
     url="https://github.com/GuiltyCat/SaltViewer",
