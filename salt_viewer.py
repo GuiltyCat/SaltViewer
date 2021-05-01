@@ -161,6 +161,7 @@ class DirectoryArchive(ArchiveBase):
     def __init__(self, file_path, data=None):
         super().__init__()
         self.open(file_path, data)
+        self.start_look_ahead()
 
     def open(self, file_path, data=None):
         # you cannot path data, ignored
