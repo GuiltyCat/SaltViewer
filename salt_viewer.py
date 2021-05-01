@@ -1,4 +1,16 @@
+import argparse
+import csv
+import io
 import logging
+import threading
+import time
+import tkinter as tk
+import tkinter.messagebox as messagebox
+import tkinter.ttk as ttk
+from pathlib import Path
+
+from natsort import natsorted
+from PIL import Image, ImageTk
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.WARNING)
@@ -11,28 +23,6 @@ formatter = logging.Formatter(
 )
 ch.setFormatter(formatter)
 logger.addHandler(ch)
-
-logger.setLevel(logging.DEBUG)
-
-logger.debug("default import")
-import argparse
-import csv
-import io
-import time
-import tkinter as tk
-import tkinter.messagebox as messagebox
-import tkinter.ttk as ttk
-from pathlib import Path
-
-import threading
-logger.debug("natsorted")
-from natsort import natsorted
-logger.debug("PIL")
-from PIL import Image, ImageTk
-logger.debug("send2trash")
-logger.debug("io")
-
-
 
 class ArchiveBase:
 
@@ -51,7 +41,7 @@ class ArchiveBase:
 
         self.images = {}
 
-        self.cache= {}
+        self.cache = {}
 
     def __del__(self):
         self.stop = True
@@ -72,7 +62,7 @@ class ArchiveBase:
         pass
 
     def in_range(self, i):
-        return max(0, min(len(self)-1, i))
+        return max(0, min(len(self) - 1, i))
 
     def getitem(self, i):
         pass
@@ -90,13 +80,13 @@ class ArchiveBase:
             if self.stop:
                 break
 
-            start = self.in_range(self.i -self.prev_cache)
-            end = self.in_range(self.i+self.next_cache)
+            start = self.in_range(self.i - self.prev_cache)
+            end = self.in_range(self.i + self.next_cache)
 
             yet = []
 
-            self.cache = { i:self.cache.get(i) for i in range(start, end)}
-            yet = [ i for i in range(start, end) if self.cache.get(i) is None]
+            self.cache = {i: self.cache.get(i) for i in range(start, end)}
+            yet = [i for i in range(start, end) if self.cache.get(i) is None]
 
             if len(yet) == 0:
                 logger.debug("cache is full.")
@@ -104,11 +94,13 @@ class ArchiveBase:
                 time.sleep(1)
                 continue
 
-            if len(yet) >1 and self.multi_read:
+            if len(yet) > 1 and self.multi_read:
                 logger.debug("get_multi_item")
                 file_names, images = self.get_multi_item(yet[0], yet[-1])
-                for j, file_name, image in zip(list(range(yet[0],yet[-1])), file_names, images):
-                    self.cache[j]=(file_name, image)
+                for j, file_name, image in zip(
+                    list(range(yet[0], yet[-1])), file_names, images
+                ):
+                    self.cache[j] = (file_name, image)
             else:
                 logger.debug("read single")
                 for j in yet:
@@ -117,7 +109,6 @@ class ArchiveBase:
                     self.cache[j] = self.getitem(j)
 
             logger.debug(f"cache {len(yet)} files. : {self.cache.keys()}")
-
 
     def __getitem__(self, i):
         i = self.in_range(i)
@@ -129,7 +120,7 @@ class ArchiveBase:
 
         logger.debug(f"cache failed:{i}")
         file_name, data = self.getitem(i)
-        self.cache[i]= (file_name,  data)
+        self.cache[i] = (file_name, data)
 
         return file_name, data
 
@@ -160,7 +151,7 @@ class ArchiveBase:
     def trash(self):
         logger.debug(self.file_path)
         if self.file_path is not None:
-            if 'send2trash' not in globals():
+            if "send2trash" not in globals():
                 global send2trash
                 from send2trash import send2trash
             send2trash(str(self.file_path))
@@ -186,7 +177,7 @@ class DirectoryArchive(ArchiveBase):
         start = self.in_range(start)
         end = self.in_range(end)
         logger.debug("return")
-        return start, end, self.file_list[start:end], [None]*(end-start)
+        return start, end, self.file_list[start:end], [None] * (end - start)
 
     def getitem(self, i):
         logger.debug(f"i = {i}")
@@ -204,7 +195,7 @@ class ZipArchive(ArchiveBase):
             import zipfile
         super().__init__()
         self.open(file_path, data)
-        #self.start_look_ahead()
+        # self.start_look_ahead()
 
     def open(self, file_path, data=None):
         logger.debug("called")
@@ -252,7 +243,7 @@ class RarArchive(ArchiveBase):
             import rarfile
         super().__init__()
         self.open(file_path, data)
-        #self.start_look_ahead()
+        # self.start_look_ahead()
 
     def open(self, file_path, data=None):
         logger.debug("called")
@@ -355,7 +346,7 @@ class PdfArchive(ArchiveBase):
 
         self.open(file_path, data)
         self.start_look_ahead()
-        #self.open_all(file_path, data)
+        # self.open_all(file_path, data)
 
     # this may eat too much memory
     def open_all(self, file_path, data=None):
@@ -369,7 +360,7 @@ class PdfArchive(ArchiveBase):
             self.images = pdf2image.convert_from_bytes(data.read())
 
         page_num = len(self.images)
-        self.file_list = [Path(str(i+1) + ".png") for i in range(page_num)]
+        self.file_list = [Path(str(i + 1) + ".png") for i in range(page_num)]
 
     def open(self, file_path, data=None):
 
@@ -393,7 +384,7 @@ class PdfArchive(ArchiveBase):
                 pdf = PyPDF3.PdfFileReader(f)
                 page_num = pdf.getNumPages()
 
-        self.file_list = [Path(str(i+1) + ".png") for i in range(page_num)]
+        self.file_list = [Path(str(i + 1) + ".png") for i in range(page_num)]
 
     def get_multi_item(self, start, end):
         logger.debug("called")
@@ -411,12 +402,16 @@ class PdfArchive(ArchiveBase):
 
         if self.data is None:
             logger.debug("read images from file_path")
-            images = pdf2image.convert_from_bytes(self.byte_data, first_page=start, last_page=end+1)
-            #images = pdf2image.convert_from_path(self.file_path, first_page=start, last_page=end+1)
+            images = pdf2image.convert_from_bytes(
+                self.byte_data, first_page=start, last_page=end + 1
+            )
+            # images = pdf2image.convert_from_path(self.file_path, first_page=start, last_page=end+1)
         else:
             logger.debug("read images from data")
             self.data.seek(0)
-            images = pdf2image.convert_from_bytes(self.data.read(), first_page=start, last_page=end+1)
+            images = pdf2image.convert_from_bytes(
+                self.data.read(), first_page=start, last_page=end + 1
+            )
 
         logger.debug("return")
         return file_names, images
@@ -434,14 +429,18 @@ class PdfArchive(ArchiveBase):
 
         if self.data is None:
             logger.debug("read from file_path")
-            images = pdf2image.convert_from_path(self.file_path, first_page=i, last_page=i+1)
-            #images = pdf2image.convert_from_bytes(self.byte_data, first_page=i, last_page=i+1)
+            images = pdf2image.convert_from_path(
+                self.file_path, first_page=i, last_page=i + 1
+            )
+            # images = pdf2image.convert_from_bytes(self.byte_data, first_page=i, last_page=i+1)
         else:
             logger.debug("read from data")
             self.data.seek(0)
-            images = pdf2image.convert_from_bytes(self.data.read(), first_page=i, last_page=i+1)
+            images = pdf2image.convert_from_bytes(
+                self.data.read(), first_page=i, last_page=i + 1
+            )
 
-        if len(images)!= 0:
+        if len(images) != 0:
             image = images[0]
         else:
             logger.debug("images is not empty.")
@@ -798,7 +797,7 @@ class SaltViewer(tk.Tk):
             "FitBoth": self.fit_both,
             "FitNone": self.fit_none,
             "Quit": self.quit,
-            "FullScreen" : self.full_screen,
+            "FullScreen": self.full_screen,
             "Head": self.head,
             "Tail": self.tail,
         }
@@ -820,9 +819,8 @@ class SaltViewer(tk.Tk):
 
         self.load_config()
 
-
     def full_screen(self, event):
-        self.attributes("-fullscreen", not self.attributes("-fullscreen") )
+        self.attributes("-fullscreen", not self.attributes("-fullscreen"))
 
     def fit_width(self, event):
         self._change_image_fit_mode("Width")
@@ -1110,6 +1108,7 @@ class SaltViewer(tk.Tk):
 
     def open_svg(self, image_path, data=None):
         import cairosvg
+
         if data is None:
             svg = cairosvg.svg2png(url=str(image_path))
         else:
