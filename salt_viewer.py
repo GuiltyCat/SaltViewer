@@ -694,7 +694,7 @@ class Config:
 
 # None, Width, Height or Both
 DefaultFitMode = Both
-DefaultFullScreen = False
+DefaultFullScreen = True
 
 # true or false.
 DoublePage = False
@@ -790,12 +790,13 @@ Reload      = r
 
 
 class SaltViewer(tk.Tk):
-    def __init__(self, config_path):
+    def __init__(self, config_path, fullscreen=False):
         logger.debug("tk.Tk init")
         super().__init__()
 
         self.archive = None
 
+        self.attributes("-fullscreen", fullscreen)
         logger.debug("set title")
         self.title("SaltViewer")
 
@@ -1466,6 +1467,7 @@ def main():
         action="store_true",
     )
     parser.add_argument("--debug", help="debug mode", action="store_true")
+    parser.add_argument("--fullscreen", help="fullscreen", action="store_true")
 
     args = parser.parse_args()
 
@@ -1485,7 +1487,7 @@ def main():
         logger.setLevel(logging.DEBUG)
 
     logger.debug("SaltViewer Init")
-    sv = SaltViewer(args.config)
+    sv = SaltViewer(args.config, args.fullscreen)
     logger.debug("opee args.path")
     sv.open(Path(args.path))
     logger.debug("mainloop")
