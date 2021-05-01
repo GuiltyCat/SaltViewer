@@ -66,6 +66,7 @@ This scripts use these pip modules.
 - pdf2python
 - pillow
 - py7zr
+- pypdf3
 - rarfile
 - send2trash
 
@@ -95,7 +96,7 @@ alias sv=salt-viewer
 Keymap
 ----------
 
-Cutout from default configuration file.
+You can change these keymaps via configuration file.
 
 
 ```
@@ -104,12 +105,11 @@ Cutout from default configuration file.
 DoublePage  = d
 TrashFile   = Delete
 
-NextPage    = h
-PrevPage    = l
-
 # You can use repetition for NextPage and PrevPage.
 # For example, 2h means goto next 2 page, type 100h go to next 100 page.
 # If you want to reset number, type <Esc>, <Ctrl+[> or simply <[>
+NextPage    = h
+PrevPage    = l
 
 NextArchive = j
 PrevArchive = k
@@ -121,13 +121,41 @@ FitBoth     = B
 
 PageOrder   = o
 
-Quit        = q
 Head        = g
 Tail        = G
+
+Quit        = q
+FullScreen  = f
+Reload      = r
 ```
 
+Setting
+------------------
 
-TODO
---------
+You can change these settings via configuration file.
 
-- Cache image for speed
+```
+[Setting]
+
+# None, Width, Height or Both
+DefaultFitMode = Both
+DefaultFullScreen = True
+
+# true or false.
+DoublePage = False
+
+# right2left or left2right
+PageOrder  = right2left
+
+# Resize algorithms
+# | Filter   | Downscaling quality | Upscaling quality | Performance |
+# | Nearest  | -                   | -                 | *****       |
+# | Box      | *                   | -                 | ****        |
+# | Bilinear | *                   | *                 | ***         |
+# | Hamming  | **                  | -                 | ***         |
+# | Bicubic  | ***                 | ***               | **          |
+# | Lanczos  | ****                | ****              | *           |
+
+UpScale     = Lanczos
+DownScale   = Lanczos
+```
