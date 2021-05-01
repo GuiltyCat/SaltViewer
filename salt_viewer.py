@@ -7,7 +7,7 @@ ch = logging.StreamHandler()
 formatter = logging.Formatter(
     # "%(asctime)s:%(name)s:%(funcName)s:%(lineno)d:%(levelname)s:%(message)s"
     # "%(funcName)s:%(lineno)d:%(levelname)s:%(message)s"
-    "%(asctime)s:%(funcName)s:%(lineno)d:%(message)s"
+    "%(asctime)s:%(lineno)d:%(funcName)s:%(message)s"
 )
 ch.setFormatter(formatter)
 logger.addHandler(ch)
@@ -24,6 +24,7 @@ import tkinter.messagebox as messagebox
 import tkinter.ttk as ttk
 from pathlib import Path
 
+import threading
 logger.debug("natsorted")
 from natsort import natsorted
 logger.debug("PIL")
@@ -34,11 +35,28 @@ logger.debug("io")
 
 
 class ArchiveBase:
-    def __init__(self):
+
+    prev_cache = 2
+    next_cache = 10
+    look_ahead_num = 3
+
+    def __init__(self, multi_read=False):
         self.file_path = None
         self.data = None
         self.file_list = []
         self.i = 0
+
+        self.multi_read = multi_read
+        self.thread_run = False
+
+        self.images = {}
+
+        self.cache= {}
+
+    def __del__(self):
+        self.stop = True
+        if self.data is not None:
+            self.data.close()
 
     def open(self, file_path, data=None):
         pass
@@ -50,8 +68,70 @@ class ArchiveBase:
     def suffix(self):
         return self.file_path.suffix.lower()
 
-    def __getitem__(self, i):
+    def get_data(self, start, end):
         pass
+
+    def in_range(self, i):
+        return max(0, min(len(self)-1, i))
+
+    def getitem(self, i):
+        pass
+
+    def start_look_ahead(self):
+        t = threading.Thread(target=self.look_ahead_thread)
+        t.start()
+
+    def stop_lock_ahead(self):
+        self.stop = True
+
+    def look_ahead_thread(self):
+        self.stop = False
+        while True:
+            if self.stop:
+                break
+
+            start = self.in_range(self.i -self.prev_cache)
+            end = self.in_range(self.i+self.next_cache)
+
+            yet = []
+
+            self.cache = { i:self.cache.get(i) for i in range(start, end)}
+            yet = [ i for i in range(start, end) if self.cache.get(i) is None]
+
+            if len(yet) == 0:
+                logger.debug("cache is full.")
+                logger.debug(f"cached page is {self.cache.keys()}")
+                time.sleep(1)
+                continue
+
+            if len(yet) >1 and self.multi_read:
+                logger.debug("get_multi_item")
+                file_names, images = self.get_multi_item(yet[0], yet[-1])
+                for j, file_name, image in zip(list(range(yet[0],yet[-1])), file_names, images):
+                    self.cache[j]=(file_name, image)
+            else:
+                logger.debug("read single")
+                for j in yet:
+                    if self.cache[j] is not None:
+                        continue
+                    self.cache[j] = self.getitem(j)
+
+            logger.debug(f"cache {len(yet)} files. : {self.cache.keys()}")
+
+
+    def __getitem__(self, i):
+        i = self.in_range(i)
+
+        self.i = i
+        if self.cache.get(i) is not None:
+            logger.debug("use cache")
+            return self.cache[i]
+
+        logger.debug(f"cache failed:{i}")
+        file_name, data = self.getitem(i)
+        self.cache[i]= (file_name,  data)
+
+        return file_name, data
 
     def __len__(self):
         return len(self.file_list)
@@ -101,11 +181,17 @@ class DirectoryArchive(ArchiveBase):
         self.i = self.file_list.index(Path(file_path))
         logger.debug(f"self.i = {self.i}")
 
-    def __getitem__(self, i):
-        logger.debug(f"self.i = {self.i}")
+    def get_data(self, start, end):
+        logger.debug("call")
+        start = self.in_range(start)
+        end = self.in_range(end)
+        logger.debug("return")
+        return start, end, self.file_list[start:end], [None]*(end-start)
+
+    def getitem(self, i):
+        logger.debug(f"i = {i}")
         if 0 <= i < len(self):
             self.file_path = self.file_list[i]
-            self.i = i
             return self.file_list[i], None
         else:
             return "", None
@@ -118,6 +204,7 @@ class ZipArchive(ArchiveBase):
             import zipfile
         super().__init__()
         self.open(file_path, data)
+        #self.start_look_ahead()
 
     def open(self, file_path, data=None):
         logger.debug("called")
@@ -137,9 +224,8 @@ class ZipArchive(ArchiveBase):
         logger.debug(self.file_list)
         logger.debug("return")
 
-    def __getitem__(self, i):
+    def getitem(self, i):
         logger.debug("__getitem__")
-        self.i = i
         file_name = ""
         file_byte = None
 
@@ -152,7 +238,7 @@ class ZipArchive(ArchiveBase):
                 file_name = Path(self.file_list[i])
                 file_byte = f.read(self.file_list[i])
 
-        logger.debug(f"self.i={self.i}")
+        logger.debug(f"i={i}")
         logger.debug(self.file_list[i])
         logger.debug(file_name)
         logger.debug("return")
@@ -166,6 +252,7 @@ class RarArchive(ArchiveBase):
             import rarfile
         super().__init__()
         self.open(file_path, data)
+        #self.start_look_ahead()
 
     def open(self, file_path, data=None):
         logger.debug("called")
@@ -184,9 +271,8 @@ class RarArchive(ArchiveBase):
         self.file_list = [f for f in self.file_list if f[-1] != "/"]
         logger.debug(self.file_list)
 
-    def __getitem__(self, i):
+    def getitem(self, i):
         logger.debug("__getitem__")
-        self.i = i
         file_name = ""
         file_byte = None
         logger.debug("to byte")
@@ -197,7 +283,7 @@ class RarArchive(ArchiveBase):
                 file_name = Path(self.file_list[i])
                 file_byte = f.read(self.file_list[i])
 
-        logger.debug(f"self.i={self.i}")
+        logger.debug(f"i={i}")
         logger.debug(self.file_list[i])
         logger.debug(file_name)
         logger.debug("return")
@@ -215,7 +301,7 @@ class SevenZipArchive(ArchiveBase):
     def open(self, file_path, data=None):
         logger.debug("called")
         self.file_path = file_path
-        self.data = None
+        self.data = data
         self.file_list = []
         logger.debug("to bytes")
         fp = self.file_path if self.data is None else io.BytesIO(self.data)
@@ -227,9 +313,8 @@ class SevenZipArchive(ArchiveBase):
         logger.debug(self.file_list)
         logger.debug("return")
 
-    def __getitem__(self, i):
-        logger.debug("__getitem__")
-        self.i = i
+    def getitem(self, i):
+        logger.debug("called")
         file_name = ""
         file_byte = None
         logger.debug("to byte")
@@ -248,7 +333,7 @@ class SevenZipArchive(ArchiveBase):
             logger.debug("read end")
 
         logger.debug(f"file_bype = {file_byte}")
-        logger.debug(f"self.i={self.i}")
+        logger.debug(f"i={i}")
         logger.debug(self.file_list[i])
         logger.debug(file_name)
         logger.debug("return")
@@ -260,30 +345,107 @@ class PdfArchive(ArchiveBase):
         if "pdf2image" not in globals():
             global pdf2image
             import pdf2image
+        if "PyPDF3" not in globals():
+            global PyPDF3
+            import PyPDF3
         super().__init__()
         self.images = []
+
+        self.multi_read = True
+
         self.open(file_path, data)
+        self.start_look_ahead()
+        #self.open_all(file_path, data)
 
-    def open(self, file_path, data=None):
-
+    # this may eat too much memory
+    def open_all(self, file_path, data=None):
         self.file_path = file_path
+
+        self.data = data
+
         if data is None:
             self.images = pdf2image.convert_from_path(file_path)
         else:
             self.images = pdf2image.convert_from_bytes(data.read())
 
-        self.file_list = [Path(str(i) + ".png") for i in range(len(self.images))]
+        page_num = len(self.images)
+        self.file_list = [Path(str(i+1) + ".png") for i in range(page_num)]
 
-    def __getitem__(self, i):
+    def open(self, file_path, data=None):
+
+        if data is None:
+            with open(file_path, "rb") as f:
+                self.byte_data = f.read()
+        else:
+            data.seek(0)
+            self.byte_data = data.read()
+
+        self.file_path = file_path
+        self.data = data
+
+        page_num = 0
+        if self.data is not None:
+            data.seek(0)
+            pdf = PyPDF3.PdfFileReader(self.data)
+            page_num = pdf.getNumPages()
+        else:
+            with open(self.file_path, "rb") as f:
+                pdf = PyPDF3.PdfFileReader(f)
+                page_num = pdf.getNumPages()
+
+        self.file_list = [Path(str(i+1) + ".png") for i in range(page_num)]
+
+    def get_multi_item(self, start, end):
+        logger.debug("called")
+        start = self.in_range(start)
+        end = self.in_range(end)
+
         logger.debug("getitem")
-        self.i = i
-        file_name = self.file_list[self.i]
-        image = self.images[self.i]
-        print(type(image))
-        logger.debug("io.BytesIO")
-        # image_bytes = io.BytesIO()
-        logger.debug("image.save")
-        # image.save(image_bytes, format="PNG")
+        logger.debug("name list")
+        file_names = self.file_list[start:end]
+
+        if len(self.images) != 0:
+            return file_names, self.images[start:end]
+
+        logger.debug(f"page = {start}:{end}")
+
+        if self.data is None:
+            logger.debug("read images from file_path")
+            images = pdf2image.convert_from_bytes(self.byte_data, first_page=start, last_page=end+1)
+            #images = pdf2image.convert_from_path(self.file_path, first_page=start, last_page=end+1)
+        else:
+            logger.debug("read images from data")
+            self.data.seek(0)
+            images = pdf2image.convert_from_bytes(self.data.read(), first_page=start, last_page=end+1)
+
+        logger.debug("return")
+        return file_names, images
+
+    def getitem(self, i):
+        logger.debug("getitem")
+        file_name = self.file_list[i]
+
+        if len(self.images) != 0:
+            return file_name, self.images[i]
+
+        image = None
+
+        logger.debug(f"page = {i}")
+
+        if self.data is None:
+            logger.debug("read from file_path")
+            images = pdf2image.convert_from_path(self.file_path, first_page=i, last_page=i+1)
+            #images = pdf2image.convert_from_bytes(self.byte_data, first_page=i, last_page=i+1)
+        else:
+            logger.debug("read from data")
+            self.data.seek(0)
+            images = pdf2image.convert_from_bytes(self.data.read(), first_page=i, last_page=i+1)
+
+        if len(images)!= 0:
+            image = images[0]
+        else:
+            logger.debug("images is not empty.")
+
         logger.debug("return")
         return file_name, image
 
@@ -556,9 +718,11 @@ FitBoth     = B
 
 PageOrder   = o
 
-Quit        = q
 Head        = g
 Tail        = G
+
+Quit        = q
+FullScreen  = f
 """
 
     def __init__(self):
@@ -634,6 +798,7 @@ class SaltViewer(tk.Tk):
             "FitBoth": self.fit_both,
             "FitNone": self.fit_none,
             "Quit": self.quit,
+            "FullScreen" : self.full_screen,
             "Head": self.head,
             "Tail": self.tail,
         }
@@ -654,6 +819,10 @@ class SaltViewer(tk.Tk):
         self.num = 0
 
         self.load_config()
+
+
+    def full_screen(self, event):
+        self.attributes("-fullscreen", not self.attributes("-fullscreen") )
 
     def fit_width(self, event):
         self._change_image_fit_mode("Width")
@@ -947,6 +1116,10 @@ class SaltViewer(tk.Tk):
             svg = cairosvg.svg2png(file_obj=data)
         svg = io.BytesIO(svg)
         return Image.open(svg)
+
+    def mainloop(self):
+        super().mainloop()
+        self.archive.stop = True
 
 
 class Icon:
