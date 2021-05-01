@@ -931,13 +931,23 @@ class SaltViewer(tk.Tk):
 
     def next_archive(self, event):
         file_path = self.archive.file_path
+        self.archive.close()
         archive = DirectoryArchive(file_path)
-        self.open(archive.next()[0])
+
+        file_path = archive.next()[0]
+        archive.close()
+
+        self.open(file_path)
 
     def prev_archive(self, event):
         file_path = self.archive.file_path
+        self.archive.close()
         archive = DirectoryArchive(file_path)
-        self.open(archive.prev()[0])
+
+        file_path = archive.prev()[0]
+        archive.close()
+
+        self.open(file_path)
 
     def construct_gui(self):
         logger.debug("called")
@@ -1035,6 +1045,7 @@ class SaltViewer(tk.Tk):
         self.image.display(image, image2, not self.right2left)
 
     def quit(self, event):
+        self.archive.close()
         self.destroy()
 
     def open(self, file_path, data=None):
