@@ -29,7 +29,6 @@ class ArchiveBase:
 
     prev_cache = 2
     next_cache = 10
-    look_ahead_num = 3
 
     def __init__(self, multi_read=False):
         self.file_path = None
@@ -69,11 +68,11 @@ class ArchiveBase:
     def getitem(self, i):
         pass
 
-    def start_look_ahead(self):
-        t = threading.Thread(target=self.look_ahead_thread)
+    def start_preload(self):
+        t = threading.Thread(target=self.preload_thread)
         t.start()
 
-    def look_ahead_thread(self):
+    def preload_thread(self):
         self.stop = False
         while True:
             if self.stop:
@@ -165,7 +164,7 @@ class DirectoryArchive(ArchiveBase):
     def __init__(self, file_path, data=None):
         super().__init__()
         self.open(file_path, data)
-        # self.start_look_ahead()
+        self.start_preload()
 
     def open(self, file_path, data=None):
         # you cannot path data, ignored
@@ -200,7 +199,7 @@ class ZipArchive(ArchiveBase):
             import zipfile
         super().__init__()
         self.open(file_path, data)
-        # self.start_look_ahead()
+        self.start_preload()
 
     def open(self, file_path, data=None):
         logger.debug("called")
@@ -248,7 +247,7 @@ class RarArchive(ArchiveBase):
             import rarfile
         super().__init__()
         self.open(file_path, data)
-        # self.start_look_ahead()
+        self.start_preload()
 
     def open(self, file_path, data=None):
         logger.debug("called")
@@ -294,7 +293,7 @@ class SevenZipArchive(ArchiveBase):
         super().__init__()
         self.open(file_path, data)
         self.multi_read = True
-        self.start_look_ahead()
+        self.start_preload()
 
     def open(self, file_path, data=None):
         logger.debug("called")
@@ -331,6 +330,7 @@ class SevenZipArchive(ArchiveBase):
 
     def getitem(self, i):
         logger.debug("called")
+        logger.debug(f"i = {i}")
         file_name = ""
         file_byte = None
         logger.debug("to byte")
@@ -338,9 +338,10 @@ class SevenZipArchive(ArchiveBase):
         logger.debug("open 7z")
         if 0 <= i < len(self):
             logger.debug("with open")
+            file_name = Path(self.file_list[i])
+            logger.debug(f"file_name＝ {file_name}")
+            logger.debug("read")
             with py7zr.SevenZipFile(fp) as f:
-                file_name = Path(self.file_list[i])
-                logger.debug("read")
                 data = f.read([self.file_list[i]])
                 logger.debug("name, data")
                 for name, data in data.items():
@@ -370,8 +371,7 @@ class PdfArchive(ArchiveBase):
         self.multi_read = True
 
         self.open(file_path, data)
-        self.start_look_ahead()
-        # self.open_all(file_path, data)
+        self.start_preload()
 
     # this may eat too much memory
     def open_all(self, file_path, data=None):
@@ -694,7 +694,7 @@ class Config:
 
 # None, Width, Height or Both
 DefaultFitMode = Both
-DefaultFullScreen = True
+DefaultFullScreen = False
 
 # true or false.
 DoublePage = False
@@ -740,6 +740,7 @@ Tail        = G
 
 Quit        = q
 FullScreen  = f
+Reload      = r
 """
 
     def __init__(self):
@@ -817,6 +818,7 @@ class SaltViewer(tk.Tk):
             "FitBoth": self.fit_both,
             "FitNone": self.fit_none,
             "Quit": self.quit,
+            "Reload": self.reload,
             "FullScreen": self.full_screen,
             "Head": self.head,
             "Tail": self.tail,
@@ -838,6 +840,10 @@ class SaltViewer(tk.Tk):
         self.num = 0
 
         self.load_config()
+
+    def reload(self, event):
+        self.archive.cache = {}
+        self.current_page()
 
     def full_screen(self, event):
         self.attributes("-fullscreen", not self.attributes("-fullscreen"))
@@ -997,11 +1003,11 @@ class SaltViewer(tk.Tk):
 
     def next_page(self, event):
         logger.debug("called")
-
         # back to the second page then next
         if self.double_page:
             logger.debug("double_page")
             self.archive.next()
+
         image = self._open_next(self.num)
         self.num = 0
         image2 = None
