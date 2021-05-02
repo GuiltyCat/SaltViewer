@@ -1485,7 +1485,7 @@ def main():
 
     default_config_path = str(Path.home() / ".svrc")
 
-    parser = argparse.ArgumentParser(description="SaltViewer")
+    parser = argparse.ArgumentParser(description="SaltViewer. Simple (archived) image viewer (https://github.com/GuiltyCat/SaltViewer)")
     parser.add_argument(
         "path", help="image file or archive file", type=str, default=None
     )
