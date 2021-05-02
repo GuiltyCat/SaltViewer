@@ -15,7 +15,7 @@ requirements = [
 ]
 setuptools.setup(
     name="salt-viewer",
-    version="0.1.4",
+    version="0.1.5",
     description="Simple (archived) image viewer",
     long_description=description,
     long_description_content_type="text/markdown",
