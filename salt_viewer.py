@@ -94,10 +94,11 @@ class ArchiveBase:
                 time.sleep(1)
                 continue
 
-            if len(yet) > 1 and self.multi_read:
+            if self.multi_read:
                 logger.debug("getitems")
                 logger.debug(f"yet = {yet}")
-                file_names, images = self.getitems(yet[0], yet[-1])
+                # read more because self.i is update till calling getitems
+                file_names, images = self.getitems(yet[0], self.in_range(yet[0]+int(self.next_cache/2)))
                 logger.debug(f"yet[0], yet[-1] = {yet[0]}, {yet[-1]}")
                 for j, file_name, image in zip(
                     list(range(yet[0], yet[-1] + 1)), file_names, images
