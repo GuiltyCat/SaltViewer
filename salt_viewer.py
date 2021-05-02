@@ -762,9 +762,11 @@ Reload      = r
         file_path = Path(file_path)
         fp = file_path
         if file_path.exists():
+            logger.debug("config file exists. reading")
             with open(fp, mode="r", newline="") as f:
                 self._load(f)
         else:
+            logger.debug("config file do not exists. read default.")
             with io.StringIO(self.default_config) as f:
                 self._load(f)
 
@@ -882,6 +884,8 @@ class SaltViewer(tk.Tk):
 
         logger.debug("overwrite settings")
         for k, v in args.items():
+            if v is None:
+                continue
             self.config.setting[k] = v
 
         for name, key in self.config.keymap.items():
@@ -907,6 +911,7 @@ class SaltViewer(tk.Tk):
             elif name == "DownScale":
                 self.image.select_down_scale_algorithm(key)
             elif name == "DefaultFullScreen":
+                logger.debug("DefaultFullScreen")
                 self.attributes("-fullscreen", key == "True")
             elif name == "DefaultPrevCache":
                 ArchiveBase.prev_cache = int(key)
@@ -999,7 +1004,7 @@ class SaltViewer(tk.Tk):
             next_file_path = archive.next()[0]
             if next_file_path == file_path:
                 next_file_path = archive.prev()[0]
-            archive.close() 
+            archive.close()
             self.archive.trash()
             self.archive.close()
             self.open(next_file_path)
@@ -1485,7 +1490,9 @@ def main():
 
     default_config_path = str(Path.home() / ".svrc")
 
-    parser = argparse.ArgumentParser(description="SaltViewer. Simple (archived) image viewer (https://github.com/GuiltyCat/SaltViewer)")
+    parser = argparse.ArgumentParser(
+        description="SaltViewer. Simple (archived) image viewer (https://github.com/GuiltyCat/SaltViewer)"
+    )
     parser.add_argument(
         "path", help="image file or archive file", type=str, default=None
     )
@@ -1505,44 +1512,45 @@ def main():
         "--debug", help="run as debug mode. All log is printed.", action="store_true"
     )
     parser.add_argument(
-        "--fullscreen", help="run as fullscreen mode", action="store_true"
+        "--fullscreen", help="run as fullscreen mode", action="store_true", default=None
     )
     parser.add_argument(
         "--prev_cache",
-        help="number of previous page cache. Default is %(default)s",
+        help="number of previous page cache. Default is 4",
         type=int,
-        default=4,
+        default=None,
     )
     parser.add_argument(
         "--next_cache",
-        help="number of previous page cache. Default is %(default)s",
+        help="number of previous page cache. Default is 10",
         type=int,
-        default=10,
+        default=None,
     )
     parser.add_argument(
         "--fit_mode",
-        help="fit_mode. Both, Raw, Width, Height.  Default is %(default)s",
-        default="Both",
+        help="fit_mode. Both, Raw, Width, Height.  Default is Both",
+        default=None,
     )
     parser.add_argument(
         "--page_order",
-        help="page order in double page mode. right2left or left2right. Default is %(default)s",
-        default="right2left",
+        help="page order in double page mode. right2left or left2right. Default is right2left",
+        default=None,
     )
     parser.add_argument(
         "--double",
         help="Double page mode. Default is %(default)s.",
         action="store_true",
+        default=None,
     )
     parser.add_argument(
         "--upscale",
-        help="Upscale algorithm. Nearest, Box, Bilinear, Hamming, Bicubic, Lanczos. Default is %(default)s.",
-        default="Lanczos",
+        help="Upscale algorithm. Nearest, Box, Bilinear, Hamming, Bicubic, Lanczos. Default is Lanczos",
+        default=None,
     )
     parser.add_argument(
         "--downscale",
-        help="Downscale algorithm. Nearest, Box, Bilinear, Hamming, Bicubic, Lanczos. Default is %(default)s.",
-        default="Lanczos",
+        help="Downscale algorithm. Nearest, Box, Bilinear, Hamming, Bicubic, Lanczos. Default is Lanczos",
+        default=None,
     )
 
     args = parser.parse_args()
