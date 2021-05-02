@@ -98,7 +98,9 @@ class ArchiveBase:
                 logger.debug("getitems")
                 logger.debug(f"yet = {yet}")
                 # read more because self.i is update till calling getitems
-                file_names, images = self.getitems(yet[0], self.in_range(yet[0]+int(self.next_cache/2)))
+                file_names, images = self.getitems(
+                    yet[0], self.in_range(yet[0] + int(self.next_cache / 2))
+                )
                 logger.debug(f"yet[0], yet[-1] = {yet[0]}, {yet[-1]}")
                 for j, file_name, image in zip(
                     list(range(yet[0], yet[-1] + 1)), file_names, images
@@ -697,6 +699,11 @@ class Config:
 DefaultFitMode = Both
 DefaultFullScreen = True
 
+
+# If you make this value too much, it will occupy too much memory.
+DefaultPrevCache = 4
+DefaultNextCache = 10
+
 # true or false.
 DoublePage = False
 
@@ -781,6 +788,9 @@ Reload      = r
 
             config[row[0].strip()] = row[1].strip()
 
+    def load_from_args(self, key, value):
+        self.settinng[key] = value
+
     def write_default_config(self, file_path):
         if file_path.exists():
             print(f"{file_path} already exists. Not overwerite.")
@@ -791,13 +801,12 @@ Reload      = r
 
 
 class SaltViewer(tk.Tk):
-    def __init__(self, config_path, fullscreen=False):
+    def __init__(self, config_path, args):
         logger.debug("tk.Tk init")
         super().__init__()
 
         self.archive = None
 
-        self.attributes("-fullscreen", fullscreen)
         logger.debug("set title")
         self.title("SaltViewer")
 
@@ -841,7 +850,7 @@ class SaltViewer(tk.Tk):
 
         self.num = 0
 
-        self.load_config()
+        self.load_config(args)
 
     def reload(self, event):
         self.archive.cache = {}
@@ -866,8 +875,13 @@ class SaltViewer(tk.Tk):
         self._change_image_fit_mode("None")
         self.current_page()
 
-    def load_config(self):
+    def load_config(self, args):
         logger.debug("called")
+
+        logger.debug("overwrite settings")
+        for k, v in args.items():
+            self.config.setting[k] = v
+
         for name, key in self.config.keymap.items():
             func = self.binding.get(name)
             if name is None:
@@ -892,6 +906,10 @@ class SaltViewer(tk.Tk):
                 self.image.select_down_scale_algorithm(key)
             elif name == "DefaultFullScreen":
                 self.attributes("-fullscreen", key == "True")
+            elif name == "DefaultPrevCache":
+                ArchiveBase.prev_cache = int(key)
+            elif name == "DefaultNextCache":
+                ArchiveBase.next_cache = int(key)
 
         self.bind("<Escape>", self.reset_num)
         self.bind("[", self.reset_num)
@@ -1478,8 +1496,49 @@ def main():
         help="write default configuration to path. salt-viewer --default_config >~/.svrc",
         action="store_true",
     )
-    parser.add_argument("--debug", help="debug mode", action="store_true")
-    parser.add_argument("--fullscreen", help="fullscreen", action="store_true")
+    parser.add_argument(
+        "--debug", help="run as debug mode. All log is printed.", action="store_true"
+    )
+    parser.add_argument(
+        "--fullscreen", help="run as fullscreen mode", action="store_true"
+    )
+    parser.add_argument(
+        "--prev_cache",
+        help="number of previous page cache. Default is %(default)s",
+        type=int,
+        default=4,
+    )
+    parser.add_argument(
+        "--next_cache",
+        help="number of previous page cache. Default is %(default)s",
+        type=int,
+        default=10,
+    )
+    parser.add_argument(
+        "--fit_mode",
+        help="fit_mode. Both, Raw, Width, Height.  Default is %(default)s",
+        default="Both",
+    )
+    parser.add_argument(
+        "--page_order",
+        help="page order in double page mode. right2left or left2right. Default is %(default)s",
+        default="right2left",
+    )
+    parser.add_argument(
+        "--double",
+        help="Double page mode. Default is %(default)s.",
+        action="store_true",
+    )
+    parser.add_argument(
+        "--upscale",
+        help="Upscale algorithm. Nearest, Box, Bilinear, Hamming, Bicubic, Lanczos. Default is %(default)s.",
+        default="Lanczos",
+    )
+    parser.add_argument(
+        "--downscale",
+        help="Downscale algorithm. Nearest, Box, Bilinear, Hamming, Bicubic, Lanczos. Default is %(default)s.",
+        default="Lanczos",
+    )
 
     args = parser.parse_args()
 
@@ -1498,8 +1557,17 @@ def main():
         logger.debug("setLevel DEBUG")
         logger.setLevel(logging.DEBUG)
 
+    sv_args = {
+        "DefaultFitMode": args.fit_mode,
+        "DefaultFullScreen": args.fullscreen,
+        "DefaultPrevCache": args.prev_cache,
+        "DefaultNextCache": args.next_cache,
+        "UpScale": args.upscale,
+        "DownScale": args.downscale,
+    }
+
     logger.debug("SaltViewer Init")
-    sv = SaltViewer(args.config, args.fullscreen)
+    sv = SaltViewer(args.config, sv_args)
     logger.debug("opee args.path")
     sv.open(Path(args.path))
     logger.debug("mainloop")
