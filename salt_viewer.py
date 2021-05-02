@@ -3,20 +3,15 @@ import csv
 import io
 import logging
 import shutil
+import threading
 import time
 import tkinter as tk
 import tkinter.messagebox as messagebox
 import tkinter.ttk as ttk
-import zipfile
 from pathlib import Path
 
-import cairosvg
-import pdf2image
-import py7zr
-import rarfile
 from natsort import natsorted
 from PIL import Image, ImageTk
-from send2trash import send2trash
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.WARNING)
@@ -25,31 +20,116 @@ ch = logging.StreamHandler()
 formatter = logging.Formatter(
     # "%(asctime)s:%(name)s:%(funcName)s:%(lineno)d:%(levelname)s:%(message)s"
     # "%(funcName)s:%(lineno)d:%(levelname)s:%(message)s"
-    "%(asctime)s:%(funcName)s:%(lineno)d:%(message)s"
+    "%(asctime)s:%(lineno)d:%(funcName)s:%(message)s"
 )
 ch.setFormatter(formatter)
 logger.addHandler(ch)
 
 
 class ArchiveBase:
-    def __init__(self):
+
+    prev_cache = 2
+    next_cache = 10
+
+    def __init__(self, multi_read=False):
         self.file_path = None
         self.data = None
         self.file_list = []
         self.i = 0
 
-    def open(self, file_path, data=None):
-        pass
+        self.multi_read = multi_read
+        self.thread_run = False
+
+        self.images = {}
+
+        self.cache = {}
+
+    def __del__(self):
+        self.close()
 
     def close(self):
+        self.stop = True
+        if self.data is not None:
+            self.data.close()
         self.file_path = None
         self.file_list = []
+
+    def open(self, file_path, data=None):
+        pass
 
     def suffix(self):
         return self.file_path.suffix.lower()
 
-    def __getitem__(self, i):
+    def get_data(self, start, end):
         pass
+
+    def in_range(self, i):
+        return max(0, min(len(self), i))
+
+    def getitem(self, i):
+        pass
+
+    def start_preload(self):
+        t = threading.Thread(target=self.preload_thread)
+        t.start()
+
+    def preload_thread(self):
+        self.stop = False
+        while True:
+            if self.stop:
+                break
+
+            start = self.in_range(self.i - self.prev_cache)
+            end = self.in_range(self.i + self.next_cache)
+
+            logger.debug(f"start, end = {start}, {end}")
+
+            yet = []
+
+            self.cache = {i: self.cache.get(i) for i in range(start, end)}
+            yet = [i for i in range(start, end) if self.cache.get(i) is None]
+
+            if len(yet) == 0:
+                logger.debug("cache is full.")
+                logger.debug(f"cached page is {self.cache.keys()}")
+                time.sleep(1)
+                continue
+
+            if self.multi_read:
+                logger.debug("getitems")
+                logger.debug(f"yet = {yet}")
+                # read more because self.i is update till calling getitems
+                file_names, images = self.getitems(
+                    yet[0], self.in_range(yet[0] + int(self.next_cache / 2))
+                )
+                logger.debug(f"yet[0], yet[-1] = {yet[0]}, {yet[-1]}")
+                for j, file_name, image in zip(
+                    list(range(yet[0], yet[-1] + 1)), file_names, images
+                ):
+                    logger.debug(f"cache: {j}, {file_name}")
+                    self.cache[j] = (file_name, image)
+            else:
+                logger.debug("read single")
+                for j in yet:
+                    if self.cache[j] is not None:
+                        continue
+                    self.cache[j] = self.getitem(j)
+
+            logger.debug(f"cache {len(yet)} files. : {self.cache.keys()}")
+
+    def __getitem__(self, i):
+        i = self.in_range(i)
+        self.i = i
+
+        if self.cache.get(i) is not None:
+            logger.debug("cache hit")
+            return self.cache[i]
+
+        logger.debug(f"cache failed:{i}")
+        file_name, data = self.getitem(i)
+        self.cache[i] = (file_name, data)
+
+        return file_name, data
 
     def __len__(self):
         return len(self.file_list)
@@ -76,15 +156,21 @@ class ArchiveBase:
         return self[self.i]
 
     def trash(self):
-        logger.debug(self.file_path)
-        if self.file_path is not None:
-            send2trash(str(self.file_path))
+        logger.debug("called")
+        file_path = self.file_path
+        self.close()
+        if file_path is not None:
+            if "send2trash" not in globals():
+                global send2trash
+                from send2trash import send2trash
+            send2trash(str(file_path))
 
 
 class DirectoryArchive(ArchiveBase):
     def __init__(self, file_path, data=None):
         super().__init__()
         self.open(file_path, data)
+        self.start_preload()
 
     def open(self, file_path, data=None):
         # you cannot path data, ignored
@@ -96,11 +182,17 @@ class DirectoryArchive(ArchiveBase):
         self.i = self.file_list.index(Path(file_path))
         logger.debug(f"self.i = {self.i}")
 
-    def __getitem__(self, i):
-        logger.debug(f"self.i = {self.i}")
+    def get_data(self, start, end):
+        logger.debug("call")
+        start = self.in_range(start)
+        end = self.in_range(end)
+        logger.debug("return")
+        return start, end, self.file_list[start:end], [None] * (end - start)
+
+    def getitem(self, i):
+        logger.debug(f"i = {i}")
         if 0 <= i < len(self):
             self.file_path = self.file_list[i]
-            self.i = i
             return self.file_list[i], None
         else:
             return "", None
@@ -108,8 +200,12 @@ class DirectoryArchive(ArchiveBase):
 
 class ZipArchive(ArchiveBase):
     def __init__(self, file_path, data=None):
+        if "zipfile" not in globals():
+            global zipfile
+            import zipfile
         super().__init__()
         self.open(file_path, data)
+        self.start_preload()
 
     def open(self, file_path, data=None):
         logger.debug("called")
@@ -129,9 +225,8 @@ class ZipArchive(ArchiveBase):
         logger.debug(self.file_list)
         logger.debug("return")
 
-    def __getitem__(self, i):
+    def getitem(self, i):
         logger.debug("__getitem__")
-        self.i = i
         file_name = ""
         file_byte = None
 
@@ -144,7 +239,7 @@ class ZipArchive(ArchiveBase):
                 file_name = Path(self.file_list[i])
                 file_byte = f.read(self.file_list[i])
 
-        logger.debug(f"self.i={self.i}")
+        logger.debug(f"i={i}")
         logger.debug(self.file_list[i])
         logger.debug(file_name)
         logger.debug("return")
@@ -153,8 +248,12 @@ class ZipArchive(ArchiveBase):
 
 class RarArchive(ArchiveBase):
     def __init__(self, file_path, data=None):
+        if "rarfile" not in "globals":
+            global rarfile
+            import rarfile
         super().__init__()
         self.open(file_path, data)
+        self.start_preload()
 
     def open(self, file_path, data=None):
         logger.debug("called")
@@ -173,9 +272,8 @@ class RarArchive(ArchiveBase):
         self.file_list = [f for f in self.file_list if f[-1] != "/"]
         logger.debug(self.file_list)
 
-    def __getitem__(self, i):
+    def getitem(self, i):
         logger.debug("__getitem__")
-        self.i = i
         file_name = ""
         file_byte = None
         logger.debug("to byte")
@@ -186,7 +284,7 @@ class RarArchive(ArchiveBase):
                 file_name = Path(self.file_list[i])
                 file_byte = f.read(self.file_list[i])
 
-        logger.debug(f"self.i={self.i}")
+        logger.debug(f"i={i}")
         logger.debug(self.file_list[i])
         logger.debug(file_name)
         logger.debug("return")
@@ -195,13 +293,18 @@ class RarArchive(ArchiveBase):
 
 class SevenZipArchive(ArchiveBase):
     def __init__(self, file_path, data=None):
+        if "py7zr" not in globals():
+            global py7zr
+            import py7zr
         super().__init__()
         self.open(file_path, data)
+        self.multi_read = True
+        self.start_preload()
 
     def open(self, file_path, data=None):
         logger.debug("called")
         self.file_path = file_path
-        self.data = None
+        self.data = data
         self.file_list = []
         logger.debug("to bytes")
         fp = self.file_path if self.data is None else io.BytesIO(self.data)
@@ -213,9 +316,27 @@ class SevenZipArchive(ArchiveBase):
         logger.debug(self.file_list)
         logger.debug("return")
 
-    def __getitem__(self, i):
-        logger.debug("__getitem__")
-        self.i = i
+    def getitems(self, start, end):
+
+        fp = self.file_path if self.data is None else io.BytesIO(self.data)
+
+        file_names = []
+        file_bytes = []
+        with py7zr.SevenZipFile(fp) as f:
+            file_names = [Path(name) for name in self.file_list[start:end]]
+            logger.debug("read")
+            data = f.read(self.file_list[start:end])
+            logger.debug("name, data")
+            for name, byte_data in data.items():
+                logger.debug("extract data")
+                file_bytes.append(byte_data)
+        logger.debug("read end")
+
+        return file_names, file_bytes
+
+    def getitem(self, i):
+        logger.debug("called")
+        logger.debug(f"i = {i}")
         file_name = ""
         file_byte = None
         logger.debug("to byte")
@@ -223,9 +344,10 @@ class SevenZipArchive(ArchiveBase):
         logger.debug("open 7z")
         if 0 <= i < len(self):
             logger.debug("with open")
+            file_name = Path(self.file_list[i])
+            logger.debug(f"file_name＝ {file_name}")
+            logger.debug("read")
             with py7zr.SevenZipFile(fp) as f:
-                file_name = Path(self.file_list[i])
-                logger.debug("read")
                 data = f.read([self.file_list[i]])
                 logger.debug("name, data")
                 for name, data in data.items():
@@ -234,7 +356,7 @@ class SevenZipArchive(ArchiveBase):
             logger.debug("read end")
 
         logger.debug(f"file_bype = {file_byte}")
-        logger.debug(f"self.i={self.i}")
+        logger.debug(f"i={i}")
         logger.debug(self.file_list[i])
         logger.debug(file_name)
         logger.debug("return")
@@ -243,30 +365,109 @@ class SevenZipArchive(ArchiveBase):
 
 class PdfArchive(ArchiveBase):
     def __init__(self, file_path, data=None):
+        if "pdf2image" not in globals():
+            global pdf2image
+            import pdf2image
+        if "PyPDF3" not in globals():
+            global PyPDF3
+            import PyPDF3
         super().__init__()
         self.images = []
+
+        self.multi_read = True
+
         self.open(file_path, data)
+        self.start_preload()
 
-    def open(self, file_path, data=None):
-
+    # this may eat too much memory
+    def open_all(self, file_path, data=None):
         self.file_path = file_path
+
+        self.data = data
+
         if data is None:
             self.images = pdf2image.convert_from_path(file_path)
         else:
             self.images = pdf2image.convert_from_bytes(data.read())
 
-        self.file_list = [Path(str(i) + ".png") for i in range(len(self.images))]
+        page_num = len(self.images)
+        self.file_list = [Path(str(i + 1) + ".png") for i in range(page_num)]
 
-    def __getitem__(self, i):
-        logger.debug("getitem")
-        self.i = i
-        file_name = self.file_list[self.i]
-        image = self.images[self.i]
-        print(type(image))
-        logger.debug("io.BytesIO")
-        # image_bytes = io.BytesIO()
-        logger.debug("image.save")
-        # image.save(image_bytes, format="PNG")
+    def open(self, file_path, data=None):
+
+        self.file_path = file_path
+        self.data = data
+
+        page_num = 0
+        if self.data is not None:
+            data.seek(0)
+            pdf = PyPDF3.PdfFileReader(self.data)
+            page_num = pdf.getNumPages()
+        else:
+            with open(self.file_path, "rb") as f:
+                pdf = PyPDF3.PdfFileReader(f)
+                page_num = pdf.getNumPages()
+
+        self.file_list = [Path(str(i + 1) + ".png") for i in range(page_num)]
+
+    def getitems(self, start, end):
+        end += 1
+        logger.debug("called")
+        logger.debug(f"start, end = {start}, {end}")
+
+        file_names = self.file_list[start:end]
+        logger.debug(f"file_names = {file_names}")
+
+        if len(self.images) != 0:
+            logger.debug("return cached images")
+            return file_names, self.images[start:end]
+
+        logger.debug(f"page = {start}:{end}")
+
+        if self.data is None:
+            logger.debug("read images from file_path")
+            images = pdf2image.convert_from_path(
+                self.file_path, first_page=start, last_page=end + 1
+            )
+        else:
+            logger.debug("read images from data")
+            self.data.seek(0)
+            images = pdf2image.convert_from_bytes(
+                self.data.read(), first_page=start, last_page=end + 1
+            )
+
+        logger.debug(f"return. {len(file_names)} == {len(images)}")
+        return file_names, images
+
+    def getitem(self, i):
+        logger.debug("called")
+        file_name = self.file_list[i]
+        logger.debug(f"file_name = {file_name}")
+
+        if len(self.images) != 0:
+            return file_name, self.images[i]
+
+        image = None
+
+        logger.debug(f"page = {i}")
+
+        if self.data is None:
+            logger.debug("read from file_path")
+            images = pdf2image.convert_from_path(
+                self.file_path, first_page=i, last_page=i + 1
+            )
+        else:
+            logger.debug("read from data")
+            self.data.seek(0)
+            images = pdf2image.convert_from_bytes(
+                self.data.read(), first_page=i, last_page=i + 1
+            )
+
+        if len(images) != 0:
+            image = images[0]
+        else:
+            logger.debug("images is not empty.")
+
         logger.debug("return")
         return file_name, image
 
@@ -567,7 +768,13 @@ class Config:
 [Setting]
 
 # None, Width, Height or Both
-FitMode = Both
+DefaultFitMode = Both
+DefaultFullScreen = True
+
+
+# If you make this value too much, it will occupy too much memory.
+DefaultPrevCache = 4
+DefaultNextCache = 10
 
 # true or false.
 DoublePage = False
@@ -608,11 +815,14 @@ FitBoth     = B
 
 PageOrder   = o
 
-MoveFile    = m
 
-Quit        = q
+MoveFile    = m
 Head        = g
 Tail        = G
+
+Quit        = q
+FullScreen  = f
+Reload      = r
 """
 
     def __init__(self):
@@ -624,9 +834,11 @@ Tail        = G
         file_path = Path(file_path)
         fp = file_path
         if file_path.exists():
+            logger.debug("config file exists. reading")
             with open(fp, mode="r", newline="") as f:
                 self._load(f)
         else:
+            logger.debug("config file do not exists. read default.")
             with io.StringIO(self.default_config) as f:
                 self._load(f)
 
@@ -652,6 +864,9 @@ Tail        = G
 
             config[row[0].strip()] = row[1].strip()
 
+    def load_from_args(self, key, value):
+        self.settinng[key] = value
+
     def write_default_config(self, file_path):
         if file_path.exists():
             print(f"{file_path} already exists. Not overwerite.")
@@ -662,15 +877,21 @@ Tail        = G
 
 
 class SaltViewer(tk.Tk):
-    def __init__(self, config_path):
+    def __init__(self, config_path, args):
+        logger.debug("tk.Tk init")
         super().__init__()
 
-        self.title("SaltViewer")
-        icon = self.open_svg(None, io.StringIO(Icon.svg))
-        icon = icon.resize((100, 100))
-        self.icon = ImageTk.PhotoImage(image=icon)
-        self.iconphoto(False, self.icon)
+        self.archive = None
 
+        logger.debug("set title")
+        self.title("SaltViewer")
+
+        # icon = self.open_svg(None, io.StringIO(Icon.svg))
+        # icon = icon.resize((100, 100))
+        # self.icon = ImageTk.PhotoImage(image=icon)
+        # self.iconphoto(False, self.icon)
+
+        logger.debug("binding functions")
         self.binding = {
             "DoublePage": self.toggle_page_mode,
             "TrashFile": self.trash,
@@ -684,22 +905,35 @@ class SaltViewer(tk.Tk):
             "FitBoth": self.fit_both,
             "FitNone": self.fit_none,
             "Quit": self.quit,
+            "Reload": self.reload,
+            "FullScreen": self.full_screen,
             "Head": self.head,
             "Tail": self.tail,
         }
 
+        logger.debug("style")
         self.style = ttk.Style()
+
         self.construct_gui()
 
         self.double_page = False
         self.right2left = True
 
+        logger.debug("read config")
         self.config = Config()
+        logger.debug("config open")
         self.config.open(config_path)
 
         self.num = 0
 
-        self.load_config()
+        self.load_config(args)
+
+    def reload(self, event):
+        self.archive.cache = {}
+        self.current_page()
+
+    def full_screen(self, event):
+        self.attributes("-fullscreen", not self.attributes("-fullscreen"))
 
     def fit_width(self, event):
         self._change_image_fit_mode("Width")
@@ -717,7 +951,15 @@ class SaltViewer(tk.Tk):
         self._change_image_fit_mode("None")
         self.current_page()
 
-    def load_config(self):
+    def load_config(self, args):
+        logger.debug("called")
+
+        logger.debug("overwrite settings")
+        for k, v in args.items():
+            if v is None:
+                continue
+            self.config.setting[k] = v
+
         for name, key in self.config.keymap.items():
             func = self.binding.get(name)
             if name is None:
@@ -730,7 +972,7 @@ class SaltViewer(tk.Tk):
                 print(f"Not supported.: {name} = {key}")
 
         for name, key in self.config.setting.items():
-            if name == "FitMode":
+            if name == "DefaultFitMode":
                 self._change_image_fit_mode(key)
             elif name == "DoublePage":
                 self.double_page = True if key == "true" else False
@@ -740,11 +982,19 @@ class SaltViewer(tk.Tk):
                 self.image.select_up_scale_algorithm(key)
             elif name == "DownScale":
                 self.image.select_down_scale_algorithm(key)
+            elif name == "DefaultFullScreen":
+                logger.debug("DefaultFullScreen")
+                self.attributes("-fullscreen", key == "True")
+            elif name == "DefaultPrevCache":
+                ArchiveBase.prev_cache = int(key)
+            elif name == "DefaultNextCache":
+                ArchiveBase.next_cache = int(key)
 
         self.bind("<Escape>", self.reset_num)
         self.bind("[", self.reset_num)
         for i in range(10):
             self.bind(f"<KeyPress-{i}>", self.num_key)
+        logger.debug("return")
 
     def num_key(self, event):
         self.num *= 10
@@ -779,15 +1029,26 @@ class SaltViewer(tk.Tk):
 
     def next_archive(self, event):
         file_path = self.archive.file_path
+        self.archive.close()
         archive = DirectoryArchive(file_path)
-        self.open(archive.next()[0])
+
+        file_path = archive.next()[0]
+        archive.close()
+
+        self.open(file_path)
 
     def prev_archive(self, event):
         file_path = self.archive.file_path
+        self.archive.close()
         archive = DirectoryArchive(file_path)
-        self.open(archive.prev()[0])
+
+        file_path = archive.prev()[0]
+        archive.close()
+
+        self.open(file_path)
 
     def construct_gui(self):
+        logger.debug("called")
         self.main_frame = ttk.Frame(self)
         self.main_frame.pack(expand=True, fill="both", anchor="center")
         self.main_frame.grid_rowconfigure([0], weight=1)
@@ -799,6 +1060,7 @@ class SaltViewer(tk.Tk):
         dummy_img = Image.new("RGB", (10, 10), color="black")
         self.image.mode = "Raw"
         self.image.display(dummy_img)
+        logger.debug("return")
 
     def trash(self, event):
         if messagebox.askokcancel("Trash file?", "Trash file?"):
@@ -808,12 +1070,15 @@ class SaltViewer(tk.Tk):
             if len(archive) == 1:
                 print("Archive is empty")
                 self.archive.trash()
+                archive.close()
                 self.quit(None)
                 return
             next_file_path = archive.next()[0]
             if next_file_path == file_path:
                 next_file_path = archive.prev()[0]
+            archive.close()
             self.archive.trash()
+            self.archive.close()
             self.open(next_file_path)
         else:
             print("Cancelled")
@@ -850,11 +1115,11 @@ class SaltViewer(tk.Tk):
 
     def next_page(self, event):
         logger.debug("called")
-
         # back to the second page then next
         if self.double_page:
             logger.debug("double_page")
             self.archive.next()
+
         image = self._open_next(self.num)
         self.num = 0
         image2 = None
@@ -881,9 +1146,12 @@ class SaltViewer(tk.Tk):
         self.image.display(image, image2, not self.right2left)
 
     def quit(self, event):
+        self.archive.close()
         self.destroy()
 
     def open(self, file_path, data=None):
+        if self.archive is not None:
+            self.archive.close()
         self.archive = self.open_archive(file_path, data)
         file_path, data = self.archive.current()
         image = self.open_file(file_path, data)
@@ -912,11 +1180,12 @@ class SaltViewer(tk.Tk):
         logger.debug("called")
 
         logger.debug("set title")
-        title = f"{file_path}:({self.archive.i+1}/{len(self.archive)})"
+        title = f"{file_path}:"
         if self.archive.file_path.stem != str(file_path.parent):
             title = f"{self.archive.file_path}/" + title
+        page = f"({self.archive.i+1}/{len(self.archive)}):"
 
-        self.title(title)
+        self.title(page + title)
         self.image.title = title
 
         file_path = Path(file_path)
@@ -982,12 +1251,18 @@ class SaltViewer(tk.Tk):
         return image
 
     def open_svg(self, image_path, data=None):
+        import cairosvg
+
         if data is None:
             svg = cairosvg.svg2png(url=str(image_path))
         else:
             svg = cairosvg.svg2png(file_obj=data)
         svg = io.BytesIO(svg)
         return Image.open(svg)
+
+    def mainloop(self):
+        super().mainloop()
+        self.archive.close()
 
 
 class Icon:
@@ -1287,7 +1562,9 @@ def main():
 
     default_config_path = str(Path.home() / ".svrc")
 
-    parser = argparse.ArgumentParser(description="SaltViewer")
+    parser = argparse.ArgumentParser(
+        description="SaltViewer. Simple (archived) image viewer (https://github.com/GuiltyCat/SaltViewer)"
+    )
     parser.add_argument(
         "path", help="image file or archive file", type=str, default=None
     )
@@ -1303,24 +1580,83 @@ def main():
         help="write default configuration to path. salt-viewer --default_config >~/.svrc",
         action="store_true",
     )
-    parser.add_argument("--debug", help="debug mode", action="store_true")
+    parser.add_argument(
+        "--debug", help="run as debug mode. All log is printed.", action="store_true"
+    )
+    parser.add_argument(
+        "--fullscreen", help="run as fullscreen mode", action="store_true", default=None
+    )
+    parser.add_argument(
+        "--prev_cache",
+        help="number of previous page cache. Default is 4",
+        type=int,
+        default=None,
+    )
+    parser.add_argument(
+        "--next_cache",
+        help="number of previous page cache. Default is 10",
+        type=int,
+        default=None,
+    )
+    parser.add_argument(
+        "--fit_mode",
+        help="fit_mode. Both, Raw, Width, Height.  Default is Both",
+        default=None,
+    )
+    parser.add_argument(
+        "--page_order",
+        help="page order in double page mode. right2left or left2right. Default is right2left",
+        default=None,
+    )
+    parser.add_argument(
+        "--double",
+        help="Double page mode. Default is %(default)s.",
+        action="store_true",
+        default=None,
+    )
+    parser.add_argument(
+        "--upscale",
+        help="Upscale algorithm. Nearest, Box, Bilinear, Hamming, Bicubic, Lanczos. Default is Lanczos",
+        default=None,
+    )
+    parser.add_argument(
+        "--downscale",
+        help="Downscale algorithm. Nearest, Box, Bilinear, Hamming, Bicubic, Lanczos. Default is Lanczos",
+        default=None,
+    )
 
     args = parser.parse_args()
 
     args.path = Path(args.path)
 
     if args.icon:
+        logger.debug("save icon")
         Icon().save_icon(args.path)
         return
 
     if args.default_config:
-        Config.write_default_config(args.path)
+        logger.debug("write default config")
+        Config().write_default_config(args.path)
+        return
 
     if args.debug:
+        logger.debug("setLevel DEBUG")
         logger.setLevel(logging.DEBUG)
 
-    sv = SaltViewer(args.config)
+    sv_args = {
+        "DefaultFitMode": args.fit_mode,
+        "DefaultFullScreen": args.fullscreen,
+        "DefaultPrevCache": args.prev_cache,
+        "DefaultNextCache": args.next_cache,
+        "UpScale": args.upscale,
+        "DownScale": args.downscale,
+    }
+
+    logger.debug("SaltViewer Init")
+    sv = SaltViewer(args.config, sv_args)
+    logger.debug("opee args.path")
     sv.open(Path(args.path))
+    logger.debug("mainloop")
     sv.mainloop()
 
 
