@@ -1557,6 +1557,7 @@ def main():
     if args.default_config:
         logger.debug("write default config")
         Config().write_default_config(args.path)
+        return
 
     if args.debug:
         logger.debug("setLevel DEBUG")
