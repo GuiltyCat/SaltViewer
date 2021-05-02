@@ -2,6 +2,7 @@ import argparse
 import csv
 import io
 import logging
+import shutil
 import time
 import tkinter as tk
 import tkinter.messagebox as messagebox
@@ -492,6 +493,51 @@ class ImageFrame(tk.Canvas):
         return self.resize(image, size, algo)
 
 
+class MoveFile:
+    sample = """\
+a:/home/GuiltyCat/images/fantastic
+b:/home/GuiltyCat/images/bravo
+b:/home/GuiltyCat/images/wonderful
+"""
+
+    def __init__(self, move_list):
+        self.move_to_list = {}
+        pass
+
+    def load_config(self, file_path):
+        if not file_path.exists():
+            messagebox.showwarning(
+                "MoveFile config does not exist.", "MoveFile config does not exist."
+            )
+            return
+
+    def move(self, file_path, key):
+        to = self.move_to_list.get(key)
+        if to is None:
+            messagebox.showwarning(
+                "Such place is not in list.", f"Such place is not in list. {key}"
+            )
+            return
+
+        if not to.exists():
+            messagebox.showwarning(
+                "Such directory does not exist.", f"Such directory does not exist. {to}"
+            )
+            return
+
+        to = to / file_path.name
+        if to.exists() and not messagebox.askokcancel(
+            "File exists.", "File exists. Overwrite?"
+        ):
+            logger.debug("Do not overwrite.")
+            return
+
+        logger.debug(f"Move {file_path} -> {to}")
+        shutil.move(file_path, to)
+
+        pass
+
+
 class Config:
     default_config = """\
 [Setting]
@@ -537,6 +583,8 @@ FitHeight   = H
 FitBoth     = B
 
 PageOrder   = o
+
+MoveFile    = m
 
 Quit        = q
 Head        = g
