@@ -121,7 +121,7 @@ class ArchiveBase:
         self.i = i
 
         if self.cache.get(i) is not None:
-            logger.debug("use cache")
+            logger.debug("cache hit")
             return self.cache[i]
 
         logger.debug(f"cache failed:{i}")
@@ -155,12 +155,14 @@ class ArchiveBase:
         return self[self.i]
 
     def trash(self):
-        logger.debug(self.file_path)
-        if self.file_path is not None:
+        logger.debug("called")
+        file_path = self.file_path
+        self.close()
+        if file_path is not None:
             if "send2trash" not in globals():
                 global send2trash
                 from send2trash import send2trash
-            send2trash(str(self.file_path))
+            send2trash(str(file_path))
 
 
 class DirectoryArchive(ArchiveBase):
@@ -991,12 +993,15 @@ class SaltViewer(tk.Tk):
             if len(archive) == 1:
                 print("Archive is empty")
                 self.archive.trash()
+                archive.close()
                 self.quit(None)
                 return
             next_file_path = archive.next()[0]
             if next_file_path == file_path:
                 next_file_path = archive.prev()[0]
+            archive.close() 
             self.archive.trash()
+            self.archive.close()
             self.open(next_file_path)
         else:
             print("Cancelled")
