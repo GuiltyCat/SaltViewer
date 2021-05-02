@@ -2,6 +2,7 @@ import argparse
 import csv
 import io
 import logging
+import shutil
 import threading
 import time
 import tkinter as tk
@@ -693,6 +694,75 @@ class ImageFrame(tk.Canvas):
         return self.resize(image, size, algo)
 
 
+class MoveFile:
+    sample = """\
+a:/home/GuiltyCat/images/fantastic
+b:/home/GuiltyCat/images/bravo
+b:/home/GuiltyCat/images/wonderful
+"""
+
+    def __init__(self, move_list):
+        self.move_to_list = {}
+        pass
+
+    def load_movelist(self, file_path):
+        if not file_path.exists():
+            messagebox.showwarning(
+                "MoveFile config does not exist.", "MoveFile config does not exist."
+            )
+            return
+
+    def show_movelist(self, file_path):
+        self.file_path = file_path
+        if len(self.move_to_list) == 0:
+            messagebox.showwarning("No place is registered", "No place is registered")
+            return
+
+        self.child = tk.Toplevel()
+        self.child.focus_set()
+
+        self.child.bind("<KeyPress>", self.move)
+
+        for k, v in self.move_to_list.items():
+            ttk.Label(child, text=f"{k}:{v}").pack(side="top", expand=True, fill="x")
+
+        ttk.Label(child, text="Esc, Ctrl+[, [: Quit").pack(
+            side="top", expand=True, fill="x"
+        )
+
+        self.child.bind("<Escape>", lambda event: self.child.destroy())
+        self.child.bind("[", lambda event: self.child.destroy())
+        self.child.wait_window()
+
+    def move(self, event):
+        self.child.destroy()
+        file_path = self.file_path
+        key = event.keysym
+
+        to = self.move_to_list.get(key)
+        if to is None:
+            messagebox.showwarning(
+                "Such place is not in list.", f"Such place is not in list. {key}"
+            )
+            return
+
+        if not to.exists():
+            messagebox.showwarning(
+                "Such directory does not exist.", f"Such directory does not exist. {to}"
+            )
+            return
+
+        to = to / file_path.name
+        if to.exists() and not messagebox.askokcancel(
+            "File exists.", "File exists. Overwrite?"
+        ):
+            logger.debug("Do not overwrite.")
+            return
+
+        logger.debug(f"Move {file_path} -> {to}")
+        shutil.move(file_path, to)
+
+
 class Config:
     default_config = """\
 [Setting]
@@ -745,6 +815,8 @@ FitBoth     = B
 
 PageOrder   = o
 
+
+MoveFile    = m
 Head        = g
 Tail        = G
 
