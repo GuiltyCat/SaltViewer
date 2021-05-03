@@ -255,3 +255,11 @@ Yet Implemented
 	- And do resize in preload
 - Zoom in and Zoom out image
 - Move around images
+
+
+
+TODP
+----------------
+
+- Move file wiht key
+- History
