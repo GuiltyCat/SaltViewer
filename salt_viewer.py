@@ -76,7 +76,7 @@ class ArchiveBase:
         self.file_list = [
             f
             for f in self.file_list
-            if f[-1] != "/" and Path(f).suffix.lower() in self.support_type
+            if str(f)[-1] != "/" and Path(f).suffix.lower() in self.support_type
         ]
 
     def close(self):
@@ -225,7 +225,6 @@ class DirectoryArchive(ArchiveBase):
     def getitem(self, i):
         logger.debug(f"i = {i}")
         if 0 <= i < len(self):
-            self.file_path = self.file_list[i]
             return self.file_list[i], None
         else:
             return "", None
@@ -728,46 +727,44 @@ class ImageFrame(tk.Canvas):
 
 
 class MoveFile:
-    sample = """\
-a:/home/GuiltyCat/images/fantastic
-b:/home/GuiltyCat/images/bravo
-b:/home/GuiltyCat/images/wonderful
-"""
-
-    def __init__(self, move_list):
-        self.move_to_list = {}
+    def __init__(self):
+        self.ret = False
         pass
 
-    def load_movelist(self, file_path):
-        if not file_path.exists():
-            messagebox.showwarning(
-                "MoveFile config does not exist.", "MoveFile config does not exist."
-            )
-            return
-
-    def show_movelist(self, file_path):
+    def move_file(self, move_to_list, file_path):
         self.file_path = file_path
+        self.move_to_list = move_to_list
         if len(self.move_to_list) == 0:
             messagebox.showwarning("No place is registered", "No place is registered")
             return
 
         self.child = tk.Toplevel()
-        self.child.focus_set()
+        self.child.attributes("-type", "dialog")
+        # self.child.focus_set()
+        self.child.focus_force()
+        self.child.grab_set()
 
-        self.child.bind("<KeyPress>", self.move)
+        self.child.bind("<KeyPress>", self._move)
+        ttk.Label(self.child, text=f"Move {file_path} to").pack(
+            side="top", expand=True, fill="x"
+        )
 
         for k, v in self.move_to_list.items():
-            ttk.Label(child, text=f"{k}:{v}").pack(side="top", expand=True, fill="x")
+            ttk.Label(self.child, text=f"{k}:{v}").pack(
+                side="top", expand=True, fill="x"
+            )
 
-        ttk.Label(child, text="Esc, Ctrl+[, [: Quit").pack(
+        ttk.Label(self.child, text="q, Esc, Ctrl+[, [: Quit").pack(
             side="top", expand=True, fill="x"
         )
 
         self.child.bind("<Escape>", lambda event: self.child.destroy())
         self.child.bind("[", lambda event: self.child.destroy())
+        self.child.bind("q", lambda event: self.child.destroy())
         self.child.wait_window()
+        return self.ret
 
-    def move(self, event):
+    def _move(self, event):
         self.child.destroy()
         file_path = self.file_path
         key = event.keysym
@@ -777,12 +774,16 @@ b:/home/GuiltyCat/images/wonderful
             messagebox.showwarning(
                 "Such place is not in list.", f"Such place is not in list. {key}"
             )
+            self.ret = False
             return
+
+        to = Path(to)
 
         if not to.exists():
             messagebox.showwarning(
                 "Such directory does not exist.", f"Such directory does not exist. {to}"
             )
+            self.ret = False
             return
 
         to = to / file_path.name
@@ -790,10 +791,13 @@ b:/home/GuiltyCat/images/wonderful
             "File exists.", "File exists. Overwrite?"
         ):
             logger.debug("Do not overwrite.")
+            self.ret = False
             return
 
         logger.debug(f"Move {file_path} -> {to}")
+
         shutil.move(file_path, to)
+        self.ret = True
 
 
 class Config:
@@ -830,7 +834,7 @@ DownScale   = Lanczos
 [Keymap]
 
 DoublePage  = d
-TrashFile   = Delete
+
 
 # You can use repetition for NextPage and PrevPage.
 # For example, 2h means goto next 2 page, type 100h go to next 100 page.
@@ -841,6 +845,10 @@ PrevPage    = l
 NextArchive = j
 PrevArchive = k
 
+Head        = g
+Tail        = G
+
+
 FitNone     = N
 FitWidth    = W
 FitHeight   = H
@@ -849,18 +857,29 @@ FitBoth     = B
 PageOrder   = o
 
 
+TrashFile   = Delete
 MoveFile    = m
-Head        = g
-Tail        = G
 
 Quit        = q
 FullScreen  = f
 Reload      = r
+
+
+[MoveToList]
+
+# When you press MoveFile key, then press key registered.
+# File will be moved to registered place.
+
+# a = /home/GuiltyCat/images/fantastic
+# b = /home/GuiltyCat/images/bravo
+# b = /home/GuiltyCat/images/wonderful
+#
 """
 
     def __init__(self):
         self.keymap = {}
         self.setting = {}
+        self.move_to_list = {}
         pass
 
     def open(self, file_path):
@@ -890,6 +909,9 @@ Reload      = r
                 continue
             if row[0] == "[Keymap]":
                 config = self.keymap
+                continue
+            if row[0] == "[MoveToList]":
+                config = self.move_to_list
                 continue
 
             if config is None:
@@ -937,6 +959,7 @@ class SaltViewer(tk.Tk):
             "FitHeight": self.fit_height,
             "FitBoth": self.fit_both,
             "FitNone": self.fit_none,
+            "MoveFile": self.move_file,
             "Quit": self.quit,
             "Reload": self.reload,
             "FullScreen": self.full_screen,
@@ -960,6 +983,37 @@ class SaltViewer(tk.Tk):
         self.num = 0
 
         self.load_config(args)
+
+    def move_file(self, event):
+
+        logger.debug("called")
+
+        file_path = self.archive.file_path
+        move_to_list = self.config.move_to_list
+        logger.debug(f"{file_path}, {move_to_list}")
+
+        archive = DirectoryArchive(file_path)
+        if len(archive) == 0:
+            self.archive.close()
+            archive.close()
+            self.quit(None)
+
+            if not MoveFile().move_file(move_to_list, file_path):
+                logger.debug("move failed")
+                return
+            return
+
+        next_file_path = archive.next()[0]
+        if next_file_path == file_path:
+            next_file_path = archive.prev()[0]
+
+        archive.close()
+        if not MoveFile().move_file(move_to_list, file_path):
+            logger.debug("move failed")
+            return
+        self.archive.close()
+        self.open(next_file_path)
+        pass
 
     def reload(self, event):
         self.archive.cache = {}
@@ -1210,6 +1264,7 @@ class SaltViewer(tk.Tk):
             return DirectoryArchive(file_path, data)
 
     def open_file(self, file_path, data=None):
+        file_path = Path(file_path)
         logger.debug("called")
 
         logger.debug("set title")
@@ -1221,7 +1276,6 @@ class SaltViewer(tk.Tk):
         self.title(page + title)
         self.image.title = title
 
-        file_path = Path(file_path)
         logger.debug(file_path)
         suffix = file_path.suffix.lower()
         logger.debug(suffix)

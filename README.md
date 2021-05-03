@@ -27,6 +27,7 @@ Support these.
 - Open archive files
 	- Zip, Rar, 7z, Pdf
 - Trash image or archive
+- Move file wiht key
 
 
 How to install
@@ -261,5 +262,5 @@ Yet Implemented
 TODP
 ----------------
 
-- Move file wiht key
 - History
+- Merge move_file and trash because both have very similar code.
