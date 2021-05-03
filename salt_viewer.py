@@ -31,6 +31,31 @@ class ArchiveBase:
     prev_cache = 2
     next_cache = 10
 
+    support_image_type = [
+        ".bmp",
+        ".dib",
+        ".eps",
+        ".gif",
+        ".icns",
+        ".ico",
+        ".im",
+        ".jpg",
+        ".jpeg",
+        ".msp",
+        ".pcx",
+        ".png",
+        ".ppm",
+        ".sgi",
+        ".spider",
+        ".tga",
+        ".tiff",
+        ".webv",
+        ".xbm",
+        "svg",
+    ]
+    support_archive_type = [".zip", ".rar", ".7z", ".pdf"]
+    support_type = support_image_type + support_archive_type
+
     def __init__(self, multi_read=False):
         self.file_path = None
         self.data = None
@@ -46,6 +71,13 @@ class ArchiveBase:
 
     def __del__(self):
         self.close()
+
+    def filtering_file_list(self):
+        self.file_list = [
+            f
+            for f in self.file_list
+            if f[-1] != "/" and Path(f).suffix.lower() in self.support_type
+        ]
 
     def close(self):
         self.stop = True
@@ -178,6 +210,7 @@ class DirectoryArchive(ArchiveBase):
         self.file_list = natsorted(
             list(Path(self.file_path.parent).glob("*")), key=lambda x: str(x)
         )
+        self.filtering_file_list()
         logger.debug(self.file_list)
         self.i = self.file_list.index(Path(file_path))
         logger.debug(f"self.i = {self.i}")
@@ -221,7 +254,7 @@ class ZipArchive(ArchiveBase):
             self.file_list = natsorted(f.namelist())
 
         logger.debug("to list")
-        self.file_list = [f for f in self.file_list if f[-1] != "/"]
+        self.filtering_file_list()
         logger.debug(self.file_list)
         logger.debug("return")
 
@@ -269,7 +302,7 @@ class RarArchive(ArchiveBase):
             self.file_list = natsorted(f.namelist())
 
         logger.debug("open rar")
-        self.file_list = [f for f in self.file_list if f[-1] != "/"]
+        self.filtering_file_list()
         logger.debug(self.file_list)
 
     def getitem(self, i):
@@ -312,7 +345,7 @@ class SevenZipArchive(ArchiveBase):
         with py7zr.SevenZipFile(fp, mode="r") as f:
             self.file_list = natsorted(f.getnames())
 
-        self.file_list = [f for f in self.file_list if f[-1] != "/"]
+        self.filtering_file_list()
         logger.debug(self.file_list)
         logger.debug("return")
 
