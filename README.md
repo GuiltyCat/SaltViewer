@@ -22,6 +22,7 @@ Support these.
 - Double page mode
 - Full screen mode
 - Keyboard shortcut
+	- Default is like vim (You can custamize)
 - Repetition key
 	- For example `100h` means go to next 100 page.
 - Open archive files
@@ -87,19 +88,20 @@ Document
 
 ```
 $ salt-viewer --help
+usage: salt_viewer.py [-h] [--config CONFIG] [--icon] [--default_config] [--debug] [--fullscreen] [--prev_cache PREV_CACHE] [--next_cache NEXT_CACHE] [--fit_mode FIT_MODE] [--page_order PAGE_ORDER]
+                      [--double] [--upscale UPSCALE] [--downscale DOWNSCALE]
+                      path
 
-usage: salt_viewer.py [-h] [--config CONFIG] [--icon] [--default_config] [--debug] [--fullscreen] [--prev_cache PREV_CACHE] [--next_cache NEXT_CACHE] [--fit_mode FIT_MODE] [--page_order PAGE_ORDER] [--double] [--upscale UPSCALE] [--downscale DOWNSCALE] path
-
-SaltViewer
+SaltViewer. Simple (archived) image viewer (https://github.com/GuiltyCat/SaltViewer)
 
 positional arguments:
   path                  image file or archive file
 
 optional arguments:
   -h, --help            show this help message and exit
-  --config CONFIG       configuration file path. default is <HOME>/.svrc
+  --config CONFIG       configuration file path. default is /home/miyamoto/.svrc
   --icon                write icon to path
-  --default_config      write default configuration to path. salt-viewer --default_config
+  --default_config      write default configuration to path. salt-viewer --default_config >~/.svrc
   --debug               run as debug mode. All log is printed.
   --fullscreen          run as fullscreen mode
   --prev_cache PREV_CACHE
@@ -109,10 +111,11 @@ optional arguments:
   --fit_mode FIT_MODE   fit_mode. Both, Raw, Width, Height. Default is Both
   --page_order PAGE_ORDER
                         page order in double page mode. right2left or left2right. Default is right2left
-  --double              Double page mode. Default is False.
-  --upscale UPSCALE     Upscale algorithm. Nearest, Box, Bilinear, Hamming, Bicubic, Lanczos. Default is Lanczos.
+  --double              Double page mode. Default is None.
+  --upscale UPSCALE     Upscale algorithm. Nearest, Box, Bilinear, Hamming, Bicubic, Lanczos. Default is Lanczos
   --downscale DOWNSCALE
-                        Downscale algorithm. Nearest, Box, Bilinear, Hamming, Bicubic, Lanczos. Default is Lanczos.
+                        Downscale algorithm. Nearest, Box, Bilinear, Hamming, Bicubic, Lanczos. Default is Lanczos
+
 ```
 
 How to use
@@ -159,7 +162,7 @@ You can change these keymaps via configuration file.
 [Keymap]
 
 DoublePage  = d
-TrashFile   = Delete
+
 
 # You can use repetition for NextPage and PrevPage.
 # For example, 2h means goto next 2 page, type 100h go to next 100 page.
@@ -170,6 +173,10 @@ PrevPage    = l
 NextArchive = j
 PrevArchive = k
 
+Head        = g
+Tail        = G
+
+
 FitNone     = N
 FitWidth    = W
 FitHeight   = H
@@ -177,12 +184,24 @@ FitBoth     = B
 
 PageOrder   = o
 
-Head        = g
-Tail        = G
+
+TrashFile   = Delete
+MoveFile    = m
 
 Quit        = q
 FullScreen  = f
 Reload      = r
+
+
+[MoveToList]
+
+# When you press MoveFile key, then press key registered.
+# File will be moved to registered place.
+
+# a = /home/GuiltyCat/images/fantastic
+# b = /home/GuiltyCat/images/bravo
+# c = /home/GuiltyCat/images/wonderful
+#
 ```
 
 Setting
@@ -196,6 +215,11 @@ You can change these settings via configuration file.
 # None, Width, Height or Both
 DefaultFitMode = Both
 DefaultFullScreen = True
+
+
+# If you make this value too much, it will occupy too much memory.
+DefaultPrevCache = 4
+DefaultNextCache = 10
 
 # true or false.
 DoublePage = False
@@ -215,6 +239,29 @@ PageOrder  = right2left
 UpScale     = Lanczos
 DownScale   = Lanczos
 ```
+
+MoveList
+-----------------
+
+You can set move list.
+
+If you type MoveFile key, a place list is appear.
+These list contains key and place pair.
+Then you type a key, opening file will be moved to a place.
+
+```
+[MoveToList]
+
+# When you press MoveFile key, then press key registered.
+# File will be moved to registered place.
+
+# a = /home/GuiltyCat/images/fantastic
+# b = /home/GuiltyCat/images/bravo
+# b = /home/GuiltyCat/images/wonderful
+#
+```
+
+
 
 Page Cache
 ------------

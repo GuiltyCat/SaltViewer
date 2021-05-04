@@ -872,7 +872,7 @@ Reload      = r
 
 # a = /home/GuiltyCat/images/fantastic
 # b = /home/GuiltyCat/images/bravo
-# b = /home/GuiltyCat/images/wonderful
+# c = /home/GuiltyCat/images/wonderful
 #
 """
 
