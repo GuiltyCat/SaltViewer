@@ -10,7 +10,7 @@ import tkinter.messagebox as messagebox
 import tkinter.ttk as ttk
 from pathlib import Path
 
-from natsort import natsorted
+import natsort as ns
 from PIL import Image, ImageTk
 
 logger = logging.getLogger(__name__)
@@ -68,6 +68,8 @@ class ArchiveBase:
         self.images = {}
 
         self.cache = {}
+
+        self.is_directory = False
 
     def __del__(self):
         self.close()
@@ -196,20 +198,27 @@ class ArchiveBase:
                 global send2trash
                 from send2trash import send2trash
             send2trash(str(file_path))
+            # del self.file_list[self.i]
+            #
+
+    def sort_file_list(self):
+        self.file_list = ns.natsorted(
+            self.file_list, key=lambda x: str(x), alg=ns.PATH | ns.IGNORECASE
+        )
 
 
 class DirectoryArchive(ArchiveBase):
     def __init__(self, file_path, data=None):
         super().__init__()
+        self.is_directory = True
         self.open(file_path, data)
         self.start_preload()
 
     def open(self, file_path, data=None):
         # you cannot path data, ignored
         self.file_path = Path(file_path)
-        self.file_list = natsorted(
-            list(Path(self.file_path.parent).glob("*")), key=lambda x: str(x)
-        )
+        self.file_list = list(Path(self.file_path.parent).glob("*"))
+        self.sort_file_list()
         self.filtering_file_list()
         logger.debug(self.file_list)
         self.i = self.file_list.index(Path(file_path))
@@ -246,14 +255,15 @@ class ZipArchive(ArchiveBase):
         self.file_list = []
 
         logger.debug("to byte")
-        #fp = self.file_path if data is None else io.BytesIO(self.data)
+        # fp = self.file_path if data is None else io.BytesIO(self.data)
         fp = self.file_path if data is None else self.data
 
         logger.debug("zip open")
         with zipfile.ZipFile(fp) as f:
-            self.file_list = natsorted(f.namelist())
-
+            self.file_list = f.namelist()
+            # ns.natsorted(f.namelist())
         logger.debug("to list")
+        self.sort_file_list()
         self.filtering_file_list()
         logger.debug(self.file_list)
         logger.debug("return")
@@ -264,7 +274,7 @@ class ZipArchive(ArchiveBase):
         file_byte = None
 
         logger.debug("to byte")
-        #fp = self.file_path if self.data is None else io.BytesIO(self.data)
+        # fp = self.file_path if self.data is None else io.BytesIO(self.data)
         fp = self.file_path if self.data is None else self.data
 
         logger.debug("open zip")
@@ -296,13 +306,14 @@ class RarArchive(ArchiveBase):
         self.file_list = []
 
         logger.debug("to byte")
-        fp = self.file_path if data is None else io.BytesIO(self.data)
+        fp = self.file_path if data is None else self.data
 
         logger.debug("open rar")
         with rarfile.RarFile(fp) as f:
-            self.file_list = natsorted(f.namelist())
+            self.file_list = f.namelist()
 
         logger.debug("open rar")
+        self.sort_file_list()
         self.filtering_file_list()
         logger.debug(self.file_list)
 
@@ -311,7 +322,7 @@ class RarArchive(ArchiveBase):
         file_name = ""
         file_byte = None
         logger.debug("to byte")
-        fp = self.file_path if self.data is None else io.BytesIO(self.data)
+        fp = self.file_path if self.data is None else self.data
         logger.debug("read file")
         if 0 <= i < len(self):
             with rarfile.RarFile(fp) as f:
@@ -344,8 +355,9 @@ class SevenZipArchive(ArchiveBase):
         fp = self.file_path if self.data is None else io.BytesIO(self.data)
         logger.debug("open 7z")
         with py7zr.SevenZipFile(fp, mode="r") as f:
-            self.file_list = natsorted(f.getnames())
+            self.file_list = f.getnames()
 
+        self.sort_file_list()
         self.filtering_file_list()
         logger.debug(self.file_list)
         logger.debug("return")
@@ -504,6 +516,39 @@ class PdfArchive(ArchiveBase):
 
         logger.debug("return")
         return file_name, image
+
+
+class ArchiveTree:
+    def __init__(self):
+        self.root = []
+        pass
+
+    def append(self, archive):
+
+        # do not delete setting
+        archive.stop = True
+        self.root.append(archive)
+
+    def next_archive(self):
+        num = len(self.root) - 1
+        if num <= 0:
+            return "", None
+
+        for i in range(num, -1, -1):
+            archive = self.root[i]
+            file_path = archive.file_path
+            next_file_path = archive.next()
+            if file_path == next_file_path:
+                logger.debug("go to parent")
+                del self.root[i]
+                continue
+            return next_file_path, archive
+
+        logger.debug("not found")
+        return "", None
+
+    def prev_archive(self):
+        pass
 
 
 class ImageFrame(tk.Canvas):
@@ -988,6 +1033,9 @@ class SaltViewer(tk.Tk):
 
     def move_file(self, event):
 
+        fullscreen = self.attributes("-fullscreen")
+        self.attributes("-fullscreen", False)
+
         logger.debug("called")
 
         file_path = self.archive.file_path
@@ -995,14 +1043,16 @@ class SaltViewer(tk.Tk):
         logger.debug(f"{file_path}, {move_to_list}")
 
         archive = DirectoryArchive(file_path)
-        if len(archive) == 0:
+        if len(archive) == 1:
             self.archive.close()
             archive.close()
             self.quit(None)
 
             if not MoveFile().move_file(move_to_list, file_path):
                 logger.debug("move failed")
+                self.attributes("-fullscreen", fullscreen)
                 return
+            self.attributes("-fullscreen", fullscreen)
             return
 
         next_file_path = archive.next()[0]
@@ -1012,10 +1062,11 @@ class SaltViewer(tk.Tk):
         archive.close()
         if not MoveFile().move_file(move_to_list, file_path):
             logger.debug("move failed")
+            self.attributes("-fullscreen", fullscreen)
             return
         self.archive.close()
         self.open(next_file_path)
-        pass
+        self.attributes("-fullscreen", fullscreen)
 
     def reload(self, event):
         self.archive.cache = {}
@@ -1117,6 +1168,7 @@ class SaltViewer(tk.Tk):
         self.current_page()
 
     def next_archive(self, event):
+
         file_path = self.archive.file_path
         self.archive.close()
         archive = DirectoryArchive(file_path)
