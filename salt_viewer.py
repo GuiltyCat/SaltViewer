@@ -154,12 +154,12 @@ class ArchiveBase:
 
     def __getitem__(self, i):
         i = self.in_range(i)
-        self.i = i
 
         if self.cache.get(i) is not None:
             logger.debug("cache hit")
             return self.cache[i]
 
+        self.i = i
         logger.debug(f"cache failed:{i}")
         file_name, data = self.getitem(i)
         self.cache[i] = (file_name, data)
@@ -190,18 +190,6 @@ class ArchiveBase:
     def current(self):
         return self[self.i]
 
-    # def trash(self):
-    #     logger.debug("called")
-    #     file_path = self.file_path
-    #     self.close()
-    #     if file_path is not None:
-    #         if "send2trash" not in globals():
-    #             global send2trash
-    #             from send2trash import send2trash
-    #         send2trash(str(file_path))
-    #         # del self.file_list[self.i]
-    #         #
-
     def sort_file_list(self):
         self.file_list = ns.natsorted(
             self.file_list, key=lambda x: str(x), alg=ns.PATH | ns.IGNORECASE
@@ -213,11 +201,17 @@ class DirectoryArchive(ArchiveBase):
         super().__init__()
         self.is_directory = True
         self.open(file_path, data)
-        self.start_preload()
+        self.cache = {}
+        # self.start_preload()
 
     def search(self, file_path):
         self.i = self.file_list.index(Path(file_path))
         return self.i
+
+    def remove(self, file_path):
+        i = self.search(file_path)
+        logger.debug(f"remove {i}:{file_path}")
+        del self.file_list[i]
 
     def open(self, file_path, data=None):
         # you cannot path data, ignored
@@ -237,9 +231,14 @@ class DirectoryArchive(ArchiveBase):
         return start, end, self.file_list[start:end], [None] * (end - start)
 
     def getitem(self, i):
+        # disable cache because trash not works well.
+        # Other way is is_directory and set file_path as same
+        self.cache = {}
         logger.debug(f"i = {i}")
         if 0 <= i < len(self):
-            return self.file_list[i], None
+            self.i = i
+            self.file_path = self.file_list[i]
+            return self.file_path, None
         else:
             return "", None
 
@@ -531,7 +530,7 @@ class ArchiveTree:
             return
         if archive.is_directory:
             archive.stop = True
-            self.root = [self.archive]
+            # self.root = [archive]
             return
 
         if len(self.root) > 1 and self.root[-1].file_path == archive.file_path:
@@ -1289,33 +1288,41 @@ class SaltViewer(tk.Tk):
 
     def trash(self, event):
         file_path = self.archive.file_path
+        logger.debug(f"file_path = {file_path}")
         top = self.tree.top()
         if top is not None:
             file_path = Path(top.file_path)
+        logger.debug(f"file_path = {file_path}")
         if messagebox.askokcancel("Trash file?", f"Trash file?\n{file_path}"):
             global send2trash
             from send2trash import send2trash
 
-            print(f"Trash {file_path}")
-            archive = DirectoryArchive(file_path)
-            if len(archive) == 1:
-                print("Archive is empty")
-                send2trash(str(file_path))
-                # self.archive.trash()
-                archive.close()
+            if self.root_dir is None:
+                self.root_dir = DirectoryArchive(file_path)
+                self.root_dir.stop = True
+
+            logger.debug(f"root_dir file_list = {self.root_dir.file_list}")
+            self.root_dir.remove(file_path)
+            logger.debug(f"root_dir file_list = {self.root_dir.file_list}")
+            send2trash(str(file_path))
+
+            if len(self.root_dir) == 0:
+                logger.debug("directory is empty")
                 self.quit(None)
                 return
 
-            next_file_path = archive.next()[0]
-            if next_file_path == file_path:
-                next_file_path = archive.prev()[0]
-            archive.close()
-            send2trash(str(file_path))
             self.archive.close()
+            self.archive = None
+
+            self.root_dir.cache = {}
+            next_file_path, data = self.root_dir.current()
+            if next_file_path == "":
+                next_file_path, data = self.root_dir.prev()
             self.tree.reset()
-            self.open(next_file_path)
+            logger.debug(f"next_file_path = {next_file_path}")
+            self.open(next_file_path, data)
         else:
-            print("Cancelled")
+            logger.debug("Cancelled")
 
     def toggle_page_mode(self, event):
         self.double_page = not self.double_page
@@ -1348,6 +1355,7 @@ class SaltViewer(tk.Tk):
         if file_path == "":
             logger.debug("file_path is empty")
             return None
+        logger.debug(f"file_path={file_path}")
         return self.open_file(file_path, data)
 
     def next_page(self, event):
@@ -1374,6 +1382,8 @@ class SaltViewer(tk.Tk):
         if file_path == "":
             logger.debug("file_path is empty")
             return None
+        logger.debug(f"file_path={file_path}")
+        logger.debug(f"self.archive.file_path={self.archive.file_path}")
         return self.open_file(file_path, data)
 
     def prev_page(self, event):
@@ -1443,7 +1453,9 @@ class SaltViewer(tk.Tk):
 
         logger.debug("set title")
         title = f"{file_path}:"
-        if self.archive.file_path.stem != str(file_path.parent):
+        if self.archive.file_path != file_path and self.archive.file_path.stem != str(
+            file_path.parent
+        ):
             title = f"{self.archive.file_path}/" + title
         page = f"({self.archive.i+1}/{len(self.archive)}):"
 
