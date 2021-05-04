@@ -311,3 +311,4 @@ TODO
 
 - History
 - Merge move_file and trash because both have very similar code.
+- Support nested archive
