@@ -246,7 +246,8 @@ class ZipArchive(ArchiveBase):
         self.file_list = []
 
         logger.debug("to byte")
-        fp = self.file_path if data is None else io.BytesIO(self.data)
+        #fp = self.file_path if data is None else io.BytesIO(self.data)
+        fp = self.file_path if data is None else self.data
 
         logger.debug("zip open")
         with zipfile.ZipFile(fp) as f:
@@ -263,7 +264,8 @@ class ZipArchive(ArchiveBase):
         file_byte = None
 
         logger.debug("to byte")
-        fp = self.file_path if self.data is None else io.BytesIO(self.data)
+        #fp = self.file_path if self.data is None else io.BytesIO(self.data)
+        fp = self.file_path if self.data is None else self.data
 
         logger.debug("open zip")
         if 0 <= i < len(self):
