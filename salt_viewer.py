@@ -83,8 +83,8 @@ class ArchiveBase:
 
     def close(self):
         self.stop = True
-        if self.data is not None:
-            self.data.close()
+        # if self.data is not None:
+        #     self.data.close()
         self.file_path = None
         self.file_list = []
 
@@ -190,17 +190,17 @@ class ArchiveBase:
     def current(self):
         return self[self.i]
 
-    def trash(self):
-        logger.debug("called")
-        file_path = self.file_path
-        self.close()
-        if file_path is not None:
-            if "send2trash" not in globals():
-                global send2trash
-                from send2trash import send2trash
-            send2trash(str(file_path))
-            # del self.file_list[self.i]
-            #
+    # def trash(self):
+    #     logger.debug("called")
+    #     file_path = self.file_path
+    #     self.close()
+    #     if file_path is not None:
+    #         if "send2trash" not in globals():
+    #             global send2trash
+    #             from send2trash import send2trash
+    #         send2trash(str(file_path))
+    #         # del self.file_list[self.i]
+    #         #
 
     def sort_file_list(self):
         self.file_list = ns.natsorted(
@@ -257,6 +257,8 @@ class ZipArchive(ArchiveBase):
 
         logger.debug("to byte")
         # fp = self.file_path if data is None else io.BytesIO(self.data)
+        if self.data is not None:
+            self.data.seek(0)
         fp = self.file_path if data is None else self.data
 
         logger.debug("zip open")
@@ -307,6 +309,8 @@ class RarArchive(ArchiveBase):
         self.file_list = []
 
         logger.debug("to byte")
+        if self.data is not None:
+            self.data.seek(0)
         fp = self.file_path if data is None else self.data
 
         logger.debug("open rar")
@@ -353,7 +357,9 @@ class SevenZipArchive(ArchiveBase):
         self.data = data
         self.file_list = []
         logger.debug("to bytes")
-        fp = self.file_path if self.data is None else io.BytesIO(self.data)
+        if self.data is not None:
+            self.data.seek(0)
+        fp = self.file_path if self.data is None else self.data
         logger.debug("open 7z")
         with py7zr.SevenZipFile(fp, mode="r") as f:
             self.file_list = f.getnames()
@@ -365,7 +371,9 @@ class SevenZipArchive(ArchiveBase):
 
     def getitems(self, start, end):
 
-        fp = self.file_path if self.data is None else io.BytesIO(self.data)
+        if self.data is not None:
+            self.data.seek(0)
+        fp = self.file_path if self.data is None else self.data
 
         file_names = []
         file_bytes = []
@@ -425,20 +433,6 @@ class PdfArchive(ArchiveBase):
 
         self.open(file_path, data)
         self.start_preload()
-
-    # this may eat too much memory
-    def open_all(self, file_path, data=None):
-        self.file_path = file_path
-
-        self.data = data
-
-        if data is None:
-            self.images = pdf2image.convert_from_path(file_path)
-        else:
-            self.images = pdf2image.convert_from_bytes(data.read())
-
-        page_num = len(self.images)
-        self.file_list = [Path(str(i + 1) + ".png") for i in range(page_num)]
 
     def open(self, file_path, data=None):
 
@@ -524,15 +518,31 @@ class ArchiveTree:
         self.root = []
         pass
 
+    def reset(self):
+        self.root = []
+
     def append(self, archive):
+        if archive is None:
+            logger.debug("archive is None.")
+            return
         if archive.is_directory:
+            archive.stop = True
             del self.root
             self.root = []
+            return
+
+        if len(self.root) > 1 and self.root[-1].file_path == archive.file_path:
+            log.debug("same archive. skipping")
             return
         # do not delete file_path and file_list
         # and stop preload because do not use so much.
         archive.stop = True
         self.root.append(archive)
+
+    def top(self):
+        if len(self.root) == 0:
+            return None
+        return self.root[0]
 
     def next_archive(self):
         num = len(self.root) - 1
@@ -563,15 +573,15 @@ class ArchiveTree:
         for i in range(num, -1, -1):
             archive = self.root[i]
             file_path = archive.file_path
-            next_file_path = archive.prev()
+            next_file_path, data = archive.prev()
             if file_path == next_file_path:
                 logger.debug("go to parent")
                 del self.root[i]
                 continue
-            return next_file_path, archive
+            return next_file_path, data, archive
 
         logger.debug("not found")
-        return "", None
+        return "", None, None
 
 
 class ImageFrame(tk.Canvas):
@@ -1193,30 +1203,77 @@ class SaltViewer(tk.Tk):
         self.current_page()
 
     def next_archive(self, event):
-        self.archive.close()
-        self.archive = None
+
+        if self.archive.is_directory:
+            self.next_page(event)
+            return
 
         next_file_path, data, archive = self.tree.next_archive()
         if next_file_path == "":
             logger.debug("archive is None")
-            self.quit(None)
+            file_path = self.archive.file_path
+            self.archive.close()
+            archive = DirectoryArchive(file_path)
+            file_path = archive.next()[0]
+            archive.close()
+            self.open(file_path)
             return
 
+        if next_file_path == self.archive.file_path:
+            logger.debug(f"next_file_path={next_file_path}")
+            self.archive.close()
+            top = self.tree.top()
+            if top is None:
+                logger.debug("top is None")
+                return
+            archive = DirectoryArchive(top.file_path)
+            file_path = archive.next()[0]
+            archive.close()
+            self.open(file_path)
+            return
+
+        self.archive.close()
+        self.archive = None
         logger.debug(f"next_file_path = {next_file_path}")
         self.open(next_file_path, data)
 
     def prev_archive(self, event):
-        self.archive.close()
-        self.archive = None
+        if self.archive.is_directory:
+            self.prev_page(event)
+            return
+
+        # self.archive.close()
+        # self.archive = None
 
         next_file_path, data, archive = self.tree.prev_archive()
         if next_file_path == "":
             logger.debug("archive is None")
+            # self.quit(None)
+            logger.debug("archive is None")
+            file_path = self.archive.file_path
+            archive = DirectoryArchive(file_path)
+            file_path = archive.prev()[0]
+            archive.close()
             self.archive.close()
-            self.quit(None)
+            self.open(file_path)
+            return
+
+        if next_file_path == self.archive.file_path:
+            logger.debug(f"next_file_path={next_file_path}")
+            self.archive.close()
+            top = self.tree.top()
+            if top is None:
+                logger.debug("top is None")
+                return
+            archive = DirectoryArchive(top.file_path)
+            file_path = archive.prev()[0]
+            archive.close()
+            self.open(file_path)
             return
 
         logger.debug(f"next_file_path = {next_file_path}")
+        self.archive.close()
+        self.archive = None
         self.open(next_file_path, data)
 
         # file_path = self.archive.file_path
@@ -1240,26 +1297,41 @@ class SaltViewer(tk.Tk):
 
         dummy_img = Image.new("RGB", (10, 10), color="black")
         self.image.mode = "Raw"
+        logger.debug(
+            "---------------------------------------------------------------------"
+        )
+        logger.debug("dummy image")
+        logger.debug(
+            "---------------------------------------------------------------------"
+        )
         self.image.display(dummy_img)
         logger.debug("return")
 
     def trash(self, event):
-        if messagebox.askokcancel("Trash file?", "Trash file?"):
-            file_path = self.archive.file_path
+        file_path = self.archive.file_path
+        top = self.tree.top()
+        if top is not None:
+            file_path = Path(top.file_path)
+        if messagebox.askokcancel("Trash file?", f"Trash file?\n{file_path}"):
+            global send2trash
+            from send2trash import send2trash
             print(f"Trash {file_path}")
             archive = DirectoryArchive(file_path)
             if len(archive) == 1:
                 print("Archive is empty")
-                self.archive.trash()
+                send2trash(str(file_path))
+                # self.archive.trash()
                 archive.close()
                 self.quit(None)
                 return
+
             next_file_path = archive.next()[0]
             if next_file_path == file_path:
                 next_file_path = archive.prev()[0]
             archive.close()
-            self.archive.trash()
+            send2trash(str(file_path))
             self.archive.close()
+            self.tree.reset()
             self.open(next_file_path)
         else:
             print("Cancelled")
@@ -1284,6 +1356,13 @@ class SaltViewer(tk.Tk):
             image2 = self._open_next()
             # back to current
             self.archive.prev()
+        logger.debug(
+            "---------------------------------------------------------------------"
+        )
+        logger.debug("current")
+        logger.debug(
+            "---------------------------------------------------------------------"
+        )
         self.image.display(image, image2, self.right2left)
 
     def _open_next(self, c=1):
@@ -1308,6 +1387,13 @@ class SaltViewer(tk.Tk):
             image2 = self._open_next()
             # in order to set index as first page
             self.archive.prev()
+        logger.debug(
+            "---------------------------------------------------------------------"
+        )
+        logger.debug("next_page")
+        logger.debug(
+            "---------------------------------------------------------------------"
+        )
         self.image.display(image, image2, self.right2left)
 
     def _open_prev(self, c=1):
@@ -1324,17 +1410,36 @@ class SaltViewer(tk.Tk):
         image2 = None
         if self.double_page:
             image2 = self._open_prev()
+        logger.debug(
+            "---------------------------------------------------------------------"
+        )
+        logger.debug("prev_page")
+        logger.debug(
+            "---------------------------------------------------------------------"
+        )
         self.image.display(image, image2, not self.right2left)
 
     def quit(self, event):
-        self.archive.close()
+        if self.archive is not None:
+            self.archive.close()
         self.destroy()
 
     def open(self, file_path, data=None):
+        if self.archive is not None:
+            self.archive.stop = True
         self.archive = self.open_archive(file_path, data)
         file_path, data = self.archive.current()
         image = self.open_file(file_path, data)
+        logger.debug(
+            "---------------------------------------------------------------------"
+        )
+        logger.debug("open")
+        logger.debug(image)
+        logger.debug(
+            "---------------------------------------------------------------------"
+        )
         self.image.display(image)
+        return image
 
     def open_archive(self, file_path, data=None):
         logger.debug("called")
@@ -1405,13 +1510,13 @@ class SaltViewer(tk.Tk):
             ".xbm",
         ]:
             return self.open_image(file_path, data)
-        elif suffix in [".tiff"]:
-            # can have multi images
-            pass
+        # elif suffix in [".tiff"]:
+        #    # can have multi images
+        #    pass
         elif suffix in [".svg"]:
             return self.open_svg(file_path, data)
         elif suffix in [".zip", ".rar", ".7z", ".pdf"]:
-            self.open(file_path, data)
+            return self.open(file_path, data)
         else:
             logger.debug(f"Not supported.:{suffix}")
             return None
@@ -1453,7 +1558,8 @@ class SaltViewer(tk.Tk):
 
     def mainloop(self):
         super().mainloop()
-        self.archive.close()
+        if self.archive is not None:
+            self.archive.close()
 
 
 class Icon:
