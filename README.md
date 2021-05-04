@@ -138,9 +138,12 @@ Basic keymaps.
 If you open image file in directory, NextArchive and PrevArchive command is works as NextPage and PrevPage.
 This command is assumed to use when opening a archive file like zip.
 
+If you open archive and press PrevArchive, the first page of previous archive is opened not the end page.
+
 
 In nested archive, like zip in zip or rar in rar, SaltViewer automatically open recursively till reaching image file.
-In other words, SaltViewer automatically open recursively and flatten nested archive.
+In other words, SaltViewer automatically open recursively and flatten nested archive in NextArchive.
+However, in the case of PrevArchive, a first page of first archive in archives is opened.
 
 To move archive in archive, you can use NextArchive and PrevArchive.
 For example, assume that you open a sample1.zip below.

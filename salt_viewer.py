@@ -1281,13 +1281,9 @@ class SaltViewer(tk.Tk):
 
         dummy_img = Image.new("RGB", (10, 10), color="black")
         self.image.mode = "Raw"
-        logger.debug(
-            "----------------------------------"
-        )
+        logger.debug("----------------------------------")
         logger.debug("dummy image")
-        logger.debug(
-            "----------------------------------"
-        )
+        logger.debug("----------------------------------")
         self.image.display(dummy_img)
         logger.debug("return")
 
@@ -1341,13 +1337,9 @@ class SaltViewer(tk.Tk):
             image2 = self._open_next()
             # back to current
             self.archive.prev()
-        logger.debug(
-            "----------------------------------"
-        )
+        logger.debug("----------------------------------")
         logger.debug("current")
-        logger.debug(
-            "----------------------------------"
-        )
+        logger.debug("----------------------------------")
         self.image.display(image, image2, self.right2left)
 
     def _open_next(self, c=1):
@@ -1372,13 +1364,9 @@ class SaltViewer(tk.Tk):
             image2 = self._open_next()
             # in order to set index as first page
             self.archive.prev()
-        logger.debug(
-            "-------------------------------------"
-        )
+        logger.debug("-------------------------------------")
         logger.debug("next_page")
-        logger.debug(
-            "-------------------------------------"
-        )
+        logger.debug("-------------------------------------")
         self.image.display(image, image2, self.right2left)
 
     def _open_prev(self, c=1):
@@ -1395,13 +1383,9 @@ class SaltViewer(tk.Tk):
         image2 = None
         if self.double_page:
             image2 = self._open_prev()
-        logger.debug(
-            "-------------------------------------"
-        )
+        logger.debug("-------------------------------------")
         logger.debug("prev_page")
-        logger.debug(
-            "-------------------------------------"
-        )
+        logger.debug("-------------------------------------")
         self.image.display(image, image2, not self.right2left)
 
     def quit(self, event):
@@ -1415,14 +1399,10 @@ class SaltViewer(tk.Tk):
         self.archive = self.open_archive(file_path, data)
         file_path, data = self.archive.current()
         image = self.open_file(file_path, data)
-        logger.debug(
-            "-------------------------------------"
-        )
+        logger.debug("-------------------------------------")
         logger.debug("open")
         logger.debug(image)
-        logger.debug(
-            "-------------------------------------"
-        )
+        logger.debug("-------------------------------------")
         self.image.display(image)
         return image
 
