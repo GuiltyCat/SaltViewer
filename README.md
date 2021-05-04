@@ -29,6 +29,7 @@ Support these.
 	- Zip, Rar, 7z, Pdf
 - Trash image or archive
 - Move file wiht key
+- Support nested archive
 
 
 How to install
@@ -136,6 +137,35 @@ Basic keymaps.
 
 If you open image file in directory, NextArchive and PrevArchive command is works as NextPage and PrevPage.
 This command is assumed to use when opening a archive file like zip.
+
+
+In nested archive, like zip in zip or rar in rar, SaltViewer automatically open recursively till reaching image file.
+In other words, SaltViewer automatically open recursively and flatten nested archive.
+
+To move archive in archive, you can use NextArchive and PrevArchive.
+For example, assume that you open a sample1.zip below.
+
+- sample1.zip
+	- nested_sample1.rar
+		- 1.jpg
+		- 2.jpg
+		- 3.jpg
+	- nested_sample2.zip
+		- 1.png
+		- 2.png
+		- 3.png
+- sample2.7z
+	- 1.svg
+
+SaltViewer displays 1.jpg in nested_sample1.
+Then if you type NextPage, 2.jpg in nested_sample1 is opened.
+If you type NextArchive, SaltViewer open 1.png in nested_sample2.zip
+Thsn if you type PrevArchive, SaltViewer open 1.jpg in nested_sample2. 
+
+You can walk around archive like you are in directory.
+
+If you reach the end of file and type, in this case 3.png in nested_sample2.zip, 1.svg in sample2.7z is opened.
+
 
 Config file
 --------------
@@ -311,4 +341,3 @@ TODO
 
 - History
 - Merge move_file and trash because both have very similar code.
-- Support nested archive
