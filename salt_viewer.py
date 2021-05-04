@@ -1315,6 +1315,7 @@ class SaltViewer(tk.Tk):
         if messagebox.askokcancel("Trash file?", f"Trash file?\n{file_path}"):
             global send2trash
             from send2trash import send2trash
+
             print(f"Trash {file_path}")
             archive = DirectoryArchive(file_path)
             if len(archive) == 1:
