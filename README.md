@@ -21,10 +21,10 @@ Support these.
 - Trash command
 - Double page mode
 - Full screen mode
-- Keyboard shortcut
-	- Default is like vim (You can custamize)
+- Vim like keymap (Vim like keyboard shortcut)
+	- You can custamize by yourself
 - Repetition key
-	- For example `100h` means go to next 100 page.
+	- For example `100h` means go to next 100 page
 - Open archive files
 	- Zip, Rar, 7z, Pdf
 - Trash image or archive
@@ -306,7 +306,7 @@ Yet Implemented
 
 
 
-TODP
+TODO
 ----------------
 
 - History
