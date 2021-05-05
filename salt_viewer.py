@@ -211,6 +211,7 @@ class DirectoryArchive(ArchiveBase):
     def remove(self, file_path):
         i = self.search(file_path)
         logger.debug(f"remove {i}:{file_path}")
+        self.cache = {}
         del self.file_list[i]
 
     def open(self, file_path, data=None):
@@ -1087,34 +1088,32 @@ class SaltViewer(tk.Tk):
         logger.debug("called")
 
         file_path = self.archive.file_path
+        top = self.tree.top()
+        if top is not None:
+            file_path = Path(top.file_path)
+
         move_to_list = self.config.move_to_list
         logger.debug(f"{file_path}, {move_to_list}")
 
-        archive = DirectoryArchive(file_path)
-        if len(archive) == 1:
-            self.archive.close()
-            archive.close()
-            self.quit(None)
+        if self.root_dir is None:
+            self.root_dir = DirectoryArchive(file_path)
+            self.root_dir.stop = True
 
-            if not MoveFile().move_file(move_to_list, file_path):
-                logger.debug("move failed")
-                self.attributes("-fullscreen", fullscreen)
-                return
-            self.attributes("-fullscreen", fullscreen)
-            return
-
-        next_file_path = archive.next()[0]
-        if next_file_path == file_path:
-            next_file_path = archive.prev()[0]
-
-        archive.close()
         if not MoveFile().move_file(move_to_list, file_path):
             logger.debug("move failed")
             self.attributes("-fullscreen", fullscreen)
             return
-        self.archive.close()
-        self.open(next_file_path)
+
+        if len(self.root_dir) == 1:
+            self.archive.close()
+            self.quit(None)
+            return
+
+        self.root_dir.remove(file_path)
+        next_file_path = self.root_dir.next()[0]
+
         self.attributes("-fullscreen", fullscreen)
+        self.open(next_file_path)
 
     def reload(self, event):
         self.archive.cache = {}
@@ -1287,6 +1286,10 @@ class SaltViewer(tk.Tk):
         logger.debug("return")
 
     def trash(self, event):
+
+        fullscreen = self.attributes("-fullscreen")
+        self.attributes("-fullscreen", False)
+
         file_path = self.archive.file_path
         logger.debug(f"file_path = {file_path}")
         top = self.tree.top()
@@ -1320,8 +1323,11 @@ class SaltViewer(tk.Tk):
                 next_file_path, data = self.root_dir.prev()
             self.tree.reset()
             logger.debug(f"next_file_path = {next_file_path}")
+            self.attributes("-fullscreen", fullscreen)
+
             self.open(next_file_path, data)
         else:
+            self.attributes("-fullscreen", fullscreen)
             logger.debug("Cancelled")
 
     def toggle_page_mode(self, event):
