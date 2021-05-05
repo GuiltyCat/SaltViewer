@@ -206,6 +206,7 @@ class DirectoryArchive(ArchiveBase):
 
     def search(self, file_path):
         self.i = self.file_list.index(Path(file_path))
+        self.cache = {}
         return self.i
 
     def remove(self, file_path):
@@ -1109,7 +1110,9 @@ class SaltViewer(tk.Tk):
             self.quit(None)
             return
 
+        self.tree.reset()
         self.root_dir.remove(file_path)
+        self.root_dir.cache = {}
         next_file_path = self.root_dir.next()[0]
 
         self.attributes("-fullscreen", fullscreen)
