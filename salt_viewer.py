@@ -1110,12 +1110,15 @@ class SaltViewer(tk.Tk):
             self.quit(None)
             return
 
+        self.archive.close()
         self.tree.reset()
+
         self.root_dir.remove(file_path)
         self.root_dir.cache = {}
         next_file_path = self.root_dir.next()[0]
 
         self.attributes("-fullscreen", fullscreen)
+        logger.debug(f"open {next_file_path}")
         self.open(next_file_path)
 
     def reload(self, event):
