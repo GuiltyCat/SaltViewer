@@ -1097,6 +1097,7 @@ class SaltViewer(tk.Tk):
         logger.debug(f"{file_path}, {move_to_list}")
 
         if self.root_dir is None:
+            logger.debug("Directory Archive")
             self.root_dir = DirectoryArchive(file_path)
             self.root_dir.stop = True
 
@@ -1111,6 +1112,7 @@ class SaltViewer(tk.Tk):
             return
 
         self.archive.close()
+        self.archive = None
         self.tree.reset()
 
         self.root_dir.remove(file_path)
@@ -1146,7 +1148,6 @@ class SaltViewer(tk.Tk):
 
     def load_config(self, args):
         logger.debug("called")
-
         logger.debug("overwrite settings")
         for k, v in args.items():
             if v is None:
@@ -1223,6 +1224,7 @@ class SaltViewer(tk.Tk):
     def next_archive(self, event):
 
         if self.root_dir is None:
+            logger.debug("Directory Archive")
             self.root_dir = DirectoryArchive(self.archive.file_path)
             self.root_dir.stop = True
 
@@ -1249,6 +1251,7 @@ class SaltViewer(tk.Tk):
 
     def prev_archive(self, event):
         if self.root_dir is None:
+            logger.debug("Directory Archive")
             self.root_dir = DirectoryArchive(self.archive.file_path)
             self.root_dir.stop = True
 
@@ -1310,9 +1313,9 @@ class SaltViewer(tk.Tk):
                 self.root_dir = DirectoryArchive(file_path)
                 self.root_dir.stop = True
 
-            logger.debug(f"root_dir file_list = {self.root_dir.file_list}")
+            # logger.debug(f"root_dir file_list = {self.root_dir.file_list}")
             self.root_dir.remove(file_path)
-            logger.debug(f"root_dir file_list = {self.root_dir.file_list}")
+            # logger.debug(f"root_dir file_list = {self.root_dir.file_list}")
             send2trash(str(file_path))
 
             if len(self.root_dir) == 0:
@@ -1325,8 +1328,10 @@ class SaltViewer(tk.Tk):
 
             self.root_dir.cache = {}
             next_file_path, data = self.root_dir.current()
+
             if next_file_path == "":
                 next_file_path, data = self.root_dir.prev()
+
             self.tree.reset()
             logger.debug(f"next_file_path = {next_file_path}")
             self.attributes("-fullscreen", fullscreen)
@@ -1451,8 +1456,8 @@ class SaltViewer(tk.Tk):
         if self.archive is None:
             return archive
 
-        logger.debug(f"self.archive file_list = {self.archive.file_list}")
-        logger.debug(f"archive file_list = {archive.file_list}")
+        # logger.debug(f"self.archive file_list = {self.archive.file_list}")
+        # logger.debug(f"archive file_list = {archive.file_list}")
         # if not self.archive.is_directory and not archive.is_directory:
         #     logger.debug("self.tree.append")
         self.tree.append(self.archive)
