@@ -26,7 +26,7 @@ Support these.
 - Repetition key
 	- For example `100h` means go to next 100 page
 - Open archive files
-	- Zip, Rar, 7z, Pdf
+	- Zip, Rar, 7z, Pdf, tar, tar.gz
 - Trash image or archive
 - Move file wiht key
 - Support nested archive
