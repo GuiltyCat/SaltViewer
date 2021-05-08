@@ -3,6 +3,7 @@ import csv
 import io
 import logging
 import shutil
+import tarfile
 import threading
 import time
 import tkinter as tk
@@ -516,6 +517,54 @@ class PdfArchive(ArchiveBase):
 
         logger.debug("return")
         return file_name, image
+
+
+class TarArchive(ArchiveBase):
+    def __init__(self, file_path, data=None):
+        if "tarfile" not in "globals":
+            global tarfile
+            import tarfile
+        super().__init__()
+        self.open(file_path, data)
+        self.start_preload()
+
+    def open(self, file_path, data=None):
+        logger.debug("called")
+        self.file_path = file_path
+        self.data = data
+        self.file_list = []
+
+        logger.debug("to byte")
+        if self.data is not None:
+            self.data.seek(0)
+        fp = self.file_path if data is None else self.data
+
+        logger.debug("open tar")
+        with tarfile.open(fp) as f:
+            self.file_list = f.getnames()
+
+        logger.debug("open tar")
+        self.sort_file_list()
+        self.filtering_file_list()
+        logger.debug(self.file_list)
+
+    def getitem(self, i):
+        logger.debug("__getitem__")
+        file_name = ""
+        file_byte = None
+        logger.debug("to byte")
+        fp = self.file_path if self.data is None else self.data
+        logger.debug("read file")
+        if 0 <= i < len(self):
+            with tarfile.open(fp) as f:
+                file_name = Path(self.file_list[i])
+                file_byte = f.extractfile(self.file_list[i]).read()
+
+        logger.debug(f"i={i}")
+        logger.debug(self.file_list[i])
+        logger.debug(file_name)
+        logger.debug("return")
+        return file_name, io.BytesIO(file_byte)
 
 
 class ArchiveTree:
@@ -1448,6 +1497,9 @@ class SaltViewer(tk.Tk):
         elif suffix == ".pdf":
             logger.debug("pdf")
             archive = PdfArchive(file_path, data)
+        elif suffix in [".tar", ".gz"]:
+            logger.debug("pdf")
+            archive = TarArchive(file_path, data)
         else:
             logger.debug("directory")
             archive = DirectoryArchive(file_path, data)
