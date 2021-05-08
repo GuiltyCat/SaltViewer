@@ -525,6 +525,7 @@ class TarArchive(ArchiveBase):
             global tarfile
             import tarfile
         super().__init__()
+        self.multi_read = True
         self.open(file_path, data)
         self.start_preload()
 
@@ -547,6 +548,22 @@ class TarArchive(ArchiveBase):
         self.sort_file_list()
         self.filtering_file_list()
         logger.debug(self.file_list)
+
+    def getitems(self, start, end):
+        end += 1
+        logger.debug("called")
+        logger.debug(f"start, end = {start}, {end}")
+
+        file_names = self.file_list[start:end]
+        logger.debug(f"file_names = {file_names}")
+        fp = self.file_path if self.data is None else self.data
+
+        with tarfile.open(fp) as f:
+            file_bytes = [ io.BytesIO(f.extractfile(name).read()) for name in file_names ]
+
+        logger.debug(f"return. {len(file_names)}")
+        return file_names, file_bytes
+
 
     def getitem(self, i):
         logger.debug("__getitem__")
