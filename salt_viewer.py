@@ -1183,7 +1183,7 @@ class SaltViewer(tk.Tk):
 
         self.root_dir.remove(file_path)
         self.root_dir.cache = {}
-        next_file_path = self.root_dir.next()[0]
+        next_file_path = self.root_dir.current()[0]
 
         self.attributes("-fullscreen", fullscreen)
         logger.debug(f"open {next_file_path}")
