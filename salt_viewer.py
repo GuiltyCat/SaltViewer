@@ -1147,6 +1147,7 @@ class SaltViewer(tk.Tk):
 
         self.load_config(args)
 
+
     def move_file(self, event):
 
         fullscreen = self.attributes("-fullscreen")
@@ -1489,6 +1490,10 @@ class SaltViewer(tk.Tk):
     def open(self, file_path, data=None):
         if self.archive is not None:
             self.archive.stop = True
+        if self.root_dir is None:
+            logger.debug("self.root_dir is None load directory")
+            self._load_root_dir(file_path)
+
         self.archive = self.open_archive(file_path, data)
         file_path, data = self.archive.current()
         image = self.open_file(file_path, data)
@@ -1499,9 +1504,19 @@ class SaltViewer(tk.Tk):
         self.image.display(image)
         return image
 
+    def _load_root_dir_thread(self, file_path):
+        if self.root_dir is None:
+            self.root_dir = DirectoryArchive(file_path)
+
+    def _load_root_dir(self, file_path):
+        logger.debug("start load_root dir")
+        t = threading.Thread(target=self._load_root_dir_thread, args=(file_path, ))
+        t.start()
+
     def open_archive(self, file_path, data=None):
         logger.debug("called")
         suffix = Path(file_path).suffix.lower()
+
         if suffix == ".zip":
             logger.debug("zip")
             archive = ZipArchive(file_path, data)
