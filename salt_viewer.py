@@ -154,6 +154,9 @@ class ArchiveBase:
             logger.debug(f"cache {len(yet)} files. : {self.cache.keys()}")
 
     def __getitem__(self, i):
+        if len(self) == 0:
+            return None, None
+
         i = self.in_range(i)
 
         if self.cache.get(i) is not None:
@@ -1496,6 +1499,10 @@ class SaltViewer(tk.Tk):
 
         self.archive = self.open_archive(file_path, data)
         file_path, data = self.archive.current()
+        logger.debug(f"file_path={file_path}")
+        if file_path is None and data is None:
+            logger.debug("file may be empty.")
+            self.destroy()
         image = self.open_file(file_path, data)
         logger.debug("-------------------------------------")
         logger.debug("open")
