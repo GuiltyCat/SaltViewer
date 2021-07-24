@@ -1441,7 +1441,7 @@ class SaltViewer(tk.Tk):
         if file_path == "":
             logger.debug("file_path is empty")
             return None
-        image = self.open_image(file_path, data)
+        image = self.open_file(file_path, data)
         image2 = None
         if self.double_page:
             image2 = self._open_next()
@@ -1459,7 +1459,7 @@ class SaltViewer(tk.Tk):
             logger.debug("file_path is empty")
             return None
         logger.debug(f"file_path={file_path}")
-        return self.open_image(file_path, data)
+        return self.open_file(file_path, data)
 
     def next_page(self, event):
         logger.debug("called")
@@ -1487,7 +1487,7 @@ class SaltViewer(tk.Tk):
             return None
         logger.debug(f"file_path={file_path}")
         logger.debug(f"self.archive.file_path={self.archive.file_path}")
-        return self.open_image(file_path, data)
+        return self.open_file(file_path, data)
 
     def prev_page(self, event):
         logger.debug("called")
@@ -1520,7 +1520,7 @@ class SaltViewer(tk.Tk):
         if file_path is None and data is None:
             logger.debug("file may be empty.")
             self.destroy()
-        image = self.open_image(file_path, data)
+        image = self.open_file(file_path, data)
         logger.debug("-------------------------------------")
         logger.debug("open")
         logger.debug(image)
@@ -1572,7 +1572,7 @@ class SaltViewer(tk.Tk):
 
         return archive
 
-    def open_image(self, file_path, data=None):
+    def open_file(self, file_path, data=None):
         file_path = Path(file_path)
         logger.debug("called")
 
@@ -1583,6 +1583,9 @@ class SaltViewer(tk.Tk):
         ):
             title = f"{self.archive.file_path}/" + title
         page = f"({self.archive.i+1}/{len(self.archive)}):"
+
+        logger.debug(page)
+        logger.debug(title)
 
         self.title(page + title)
         self.image.title = title
