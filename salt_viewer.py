@@ -2,6 +2,7 @@ import argparse
 import csv
 import io
 import logging
+import random
 import shutil
 import tarfile
 import threading
@@ -247,6 +248,10 @@ class DirectoryArchive(ArchiveBase):
             return self.file_path, None
         else:
             return "", None
+
+    def random_select(self):
+        i = random.randrange(len(self))
+        return self.getitem(i)
 
 
 class ZipArchive(ArchiveBase):
@@ -562,11 +567,10 @@ class TarArchive(ArchiveBase):
         fp = self.file_path if self.data is None else self.data
 
         with tarfile.open(fp) as f:
-            file_bytes = [ io.BytesIO(f.extractfile(name).read()) for name in file_names ]
+            file_bytes = [io.BytesIO(f.extractfile(name).read()) for name in file_names]
 
         logger.debug(f"return. {len(file_names)}")
         return file_names, file_bytes
-
 
     def getitem(self, i):
         logger.debug("__getitem__")
@@ -999,30 +1003,32 @@ DoublePage  = d
 # You can use repetition for NextPage and PrevPage.
 # For example, 2h means goto next 2 page, type 100h go to next 100 page.
 # If you want to reset number, type <Esc>, <Ctrl+[> or simply <[>
-NextPage    = h
-PrevPage    = l
+NextPage     = h
+PrevPage     = l
 
-NextArchive = j
-PrevArchive = k
+NextArchive  = j
+PrevArchive  = k
 
-Head        = g
-Tail        = G
-
-
-FitNone     = N
-FitWidth    = W
-FitHeight   = H
-FitBoth     = B
-
-PageOrder   = o
+Head         = g
+Tail         = G
 
 
-TrashFile   = Delete
-MoveFile    = m
+FitNone      = N
+FitWidth     = W
+FitHeight    = H
+FitBoth      = B
 
-Quit        = q
-FullScreen  = f
-Reload      = r
+PageOrder    = o
+
+
+TrashFile    = Delete
+MoveFile     = m
+
+Quit         = q
+FullScreen   = f
+Reload       = r
+
+RandomSelect = n
 
 
 [MoveToList]
@@ -1096,6 +1102,8 @@ class SaltViewer(tk.Tk):
         logger.debug("tk.Tk init")
         super().__init__()
 
+        self.file_path = None
+
         self.archive = None
 
         # this directory is the parent of first file_path that passed
@@ -1129,6 +1137,7 @@ class SaltViewer(tk.Tk):
             "FullScreen": self.full_screen,
             "Head": self.head,
             "Tail": self.tail,
+            "RandomSelect": self.random_select,
         }
 
         logger.debug("style")
@@ -1150,6 +1159,13 @@ class SaltViewer(tk.Tk):
 
         self.load_config(args)
 
+    def random_select(self, event):
+        logger.debug("random_select called")
+        self._load_root_dir_thread(self.file_path)
+        self.tree.reset()
+        self.archive.close()
+        self.archive = None
+        self.open(*self.root_dir.random_select())
 
     def move_file(self, event):
 
@@ -1425,7 +1441,7 @@ class SaltViewer(tk.Tk):
         if file_path == "":
             logger.debug("file_path is empty")
             return None
-        image = self.open_file(file_path, data)
+        image = self.open_image(file_path, data)
         image2 = None
         if self.double_page:
             image2 = self._open_next()
@@ -1443,7 +1459,7 @@ class SaltViewer(tk.Tk):
             logger.debug("file_path is empty")
             return None
         logger.debug(f"file_path={file_path}")
-        return self.open_file(file_path, data)
+        return self.open_image(file_path, data)
 
     def next_page(self, event):
         logger.debug("called")
@@ -1471,7 +1487,7 @@ class SaltViewer(tk.Tk):
             return None
         logger.debug(f"file_path={file_path}")
         logger.debug(f"self.archive.file_path={self.archive.file_path}")
-        return self.open_file(file_path, data)
+        return self.open_image(file_path, data)
 
     def prev_page(self, event):
         logger.debug("called")
@@ -1496,6 +1512,7 @@ class SaltViewer(tk.Tk):
         if self.root_dir is None:
             logger.debug("self.root_dir is None load directory")
             self._load_root_dir(file_path)
+        self.file_path = file_path
 
         self.archive = self.open_archive(file_path, data)
         file_path, data = self.archive.current()
@@ -1503,7 +1520,7 @@ class SaltViewer(tk.Tk):
         if file_path is None and data is None:
             logger.debug("file may be empty.")
             self.destroy()
-        image = self.open_file(file_path, data)
+        image = self.open_image(file_path, data)
         logger.debug("-------------------------------------")
         logger.debug("open")
         logger.debug(image)
@@ -1517,7 +1534,7 @@ class SaltViewer(tk.Tk):
 
     def _load_root_dir(self, file_path):
         logger.debug("start load_root dir")
-        t = threading.Thread(target=self._load_root_dir_thread, args=(file_path, ))
+        t = threading.Thread(target=self._load_root_dir_thread, args=(file_path,))
         t.start()
 
     def open_archive(self, file_path, data=None):
@@ -1555,7 +1572,7 @@ class SaltViewer(tk.Tk):
 
         return archive
 
-    def open_file(self, file_path, data=None):
+    def open_image(self, file_path, data=None):
         file_path = Path(file_path)
         logger.debug("called")
 
