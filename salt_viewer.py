@@ -950,6 +950,9 @@ class MoveFile:
             self.ret = False
             return
 
+        if file_path.resolve() == Path(to / file_path.name).resolve():
+            return
+
         to = to / file_path.name
         if to.exists() and not messagebox.askokcancel(
             "File exists.", "File exists. Overwrite?"
@@ -957,6 +960,7 @@ class MoveFile:
             logger.debug("Do not overwrite.")
             self.ret = False
             return
+        
 
         logger.debug(f"Move {file_path} -> {to}")
 
