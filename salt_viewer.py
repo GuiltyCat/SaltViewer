@@ -8,6 +8,7 @@ import tarfile
 import threading
 import time
 import tkinter as tk
+import tkinter.filedialog as filedialog
 import tkinter.messagebox as messagebox
 import tkinter.ttk as ttk
 from pathlib import Path
@@ -227,8 +228,11 @@ class DirectoryArchive(ArchiveBase):
         self.sort_file_list()
         self.filtering_file_list()
         # logger.debug(self.file_list)
-        self.i = self.file_list.index(Path(file_path))
-        logger.debug(f"self.i = {self.i}")
+        try:
+            self.i = self.file_list.index(Path(file_path))
+            logger.debug(f"self.i = {self.i}")
+        except ValueError:
+            logger.debug("search failed. such file does not exist")
 
     def get_data(self, start, end):
         logger.debug("call")
@@ -960,7 +964,6 @@ class MoveFile:
             logger.debug("Do not overwrite.")
             self.ret = False
             return
-        
 
         logger.debug(f"Move {file_path} -> {to}")
 
@@ -975,7 +978,6 @@ class Config:
 # None, Width, Height or Both
 DefaultFitMode = Both
 DefaultFullScreen = True
-
 
 # If you make this value too much, it will occupy too much memory.
 DefaultPrevCache = 4
@@ -1003,7 +1005,6 @@ DownScale   = Lanczos
 
 DoublePage  = d
 
-
 # You can use repetition for NextPage and PrevPage.
 # For example, 2h means goto next 2 page, type 100h go to next 100 page.
 # If you want to reset number, type <Esc>, <Ctrl+[> or simply <[>
@@ -1016,7 +1017,6 @@ PrevArchive  = k
 Head         = g
 Tail         = G
 
-
 FitNone      = N
 FitWidth     = W
 FitHeight    = H
@@ -1024,8 +1024,8 @@ FitBoth      = B
 
 PageOrder    = o
 
-
 TrashFile    = Delete
+RenameFile  = e
 MoveFile     = m
 
 Quit         = q
@@ -1033,7 +1033,6 @@ FullScreen   = f
 Reload       = r
 
 RandomSelect = n
-
 
 [MoveToList]
 
@@ -1117,6 +1116,7 @@ class SaltViewer(tk.Tk):
         logger.debug("set title")
         self.title("SaltViewer")
 
+
         # icon = self.open_svg(None, io.StringIO(Icon.svg))
         # icon = icon.resize((100, 100))
         # self.icon = ImageTk.PhotoImage(image=icon)
@@ -1126,6 +1126,7 @@ class SaltViewer(tk.Tk):
         self.binding = {
             "DoublePage": self.toggle_page_mode,
             "TrashFile": self.trash,
+            "RenameFile": self.rename,
             "NextPage": self.next_page,
             "PrevPage": self.prev_page,
             "NextArchive": self.next_archive,
@@ -1167,7 +1168,8 @@ class SaltViewer(tk.Tk):
         logger.debug("random_select called")
         self._load_root_dir_thread(self.file_path)
         self.tree.reset()
-        self.archive.close()
+        if self.archive is not None:
+            self.archive.close()
         self.archive = None
         self.open(*self.root_dir.random_select())
 
@@ -1382,7 +1384,65 @@ class SaltViewer(tk.Tk):
         logger.debug("dummy image")
         logger.debug("----------------------------------")
         self.image.display(dummy_img)
+        self.statusbar = tk.Label(self, text="SaltViewer", anchor="w")
+
+        self.statusbar.pack(side=tk.BOTTOM, fill=tk.X)
         logger.debug("return")
+
+    def rename(self, event):
+        fullscreen = self.attributes("-fullscreen")
+        self.attributes("-fullscreen", False)
+
+        file_path = self.archive.file_path
+
+        top = self.tree.top()
+        if top is not None:
+            file_path = Path(top.file_path)
+
+        logger.debug(f"file_path = {file_path}")
+        file_name = filedialog.asksaveasfilename(
+            initialdir=file_path.parent,
+            initialfile=file_path.name,
+            defaultextension=file_path.suffix,
+        )
+        if file_name is None or file_name == "" or file_name == ():
+            logger.debug("file_name is None")
+            return
+        logger.debug(file_name)
+
+        if self.root_dir is None:
+            self.root_dir = DirectoryArchive(file_path)
+            self.root_dir.stop = True
+
+        # logger.debug(f"root_dir file_list = {self.root_dir.file_list}")
+        self.root_dir.remove(file_path)
+        # logger.debug(f"root_dir file_list = {self.root_dir.file_list}")
+        file_name = Path(file_name)
+        if file_name.exists() and not messagebox.askokcancel(
+            "Overwrite?", f"Overwrite File?"
+        ):
+            logger.debug("Cancel overwriting")
+            return
+        shutil.move(file_path, file_name)
+
+        if len(self.root_dir) == 0:
+            logger.debug("directory is empty")
+            self.quit(None)
+            return
+
+        self.archive.close()
+        self.archive = None
+
+        self.root_dir.cache = {}
+        next_file_path, data = self.root_dir.current()
+
+        if next_file_path == "":
+            next_file_path, data = self.root_dir.prev()
+
+        self.tree.reset()
+        logger.debug(f"next_file_path = {next_file_path}")
+        self.open(next_file_path, data)
+        self.attributes("-fullscreen", fullscreen)
 
     def trash(self, event):
 
@@ -1577,6 +1637,9 @@ class SaltViewer(tk.Tk):
         return archive
 
     def open_file(self, file_path, data=None):
+        if file_path is None:
+            logger.debug("file_path is None")
+            return
         file_path = Path(file_path)
         logger.debug("called")
 
@@ -1592,6 +1655,7 @@ class SaltViewer(tk.Tk):
         logger.debug(title)
 
         self.title(page + title)
+        self.statusbar.configure(text=f"{page} {title}")
         self.image.title = title
 
         logger.debug(file_path)
