@@ -4,7 +4,6 @@ import io
 import logging
 import random
 import shutil
-import tarfile
 import threading
 import time
 import tkinter as tk
@@ -14,6 +13,7 @@ import tkinter.ttk as ttk
 from pathlib import Path
 
 import natsort as ns
+import pillow_avif
 from PIL import Image, ImageTk
 
 logger = logging.getLogger(__name__)
@@ -54,7 +54,8 @@ class ArchiveBase:
         ".tiff",
         ".webv",
         ".xbm",
-        "svg",
+        ".svg",
+        ".avif",
     ]
     support_archive_type = [".zip", ".rar", ".7z", ".pdf"]
     support_type = support_image_type + support_archive_type
@@ -119,7 +120,7 @@ class ArchiveBase:
             start = self.in_range(self.i - self.prev_cache)
             end = self.in_range(self.i + self.next_cache)
 
-            logger.debug(f"start, end = {start}, {end}")
+            # logger.debug(f"start, end = {start}, {end}")
 
             yet = []
 
@@ -127,9 +128,9 @@ class ArchiveBase:
             yet = [i for i in range(start, end) if self.cache.get(i) is None]
 
             if len(yet) == 0:
-                logger.debug("cache is full.")
-                logger.debug(f"file_path = {self.file_path}")
-                logger.debug(f"cached page is {self.cache.keys()}")
+                # logger.debug("cache is full.")
+                # logger.debug(f"file_path = {self.file_path}")
+                # logger.debug(f"cached page is {self.cache.keys()}")
                 time.sleep(1)
                 continue
 
@@ -206,9 +207,17 @@ class DirectoryArchive(ArchiveBase):
     def __init__(self, file_path, data=None):
         super().__init__()
         self.is_directory = True
+        self.random_list = []
         self.open(file_path, data)
+        self.gen_random_list()
         self.cache = {}
         # self.start_preload()
+        #
+
+    def gen_random_list(self):
+        # call after open calling
+        self.random_list = [i for i in range(len(self))]
+        random.shuffle(self.random_list)
 
     def search(self, file_path):
         self.i = self.file_list.index(Path(file_path))
@@ -220,6 +229,14 @@ class DirectoryArchive(ArchiveBase):
         logger.debug(f"remove {i}:{file_path}")
         self.cache = {}
         del self.file_list[i]
+        if int(i) in self.random_list:
+            logger.debug("i in self.random_list")
+            i = int(i)
+            self.random_list = [
+                n if n < i else n - 1 for n in self.random_list if n != i
+            ]
+        else:
+            logger.debug("i is not in self.random_list")
 
     def open(self, file_path, data=None):
         # you cannot path data, ignored
@@ -254,7 +271,10 @@ class DirectoryArchive(ArchiveBase):
             return "", None
 
     def random_select(self):
-        i = random.randrange(len(self))
+        if len(self.random_list) == 0:
+            self.gen_random_list()
+            messagebox.showwarning("reset random_list", "reset random_list")
+        i = self.random_list.pop()
         return self.getitem(i)
 
 
@@ -674,12 +694,12 @@ class ArchiveTree:
 
 class ImageFrame(tk.Canvas):
     algorithm = {
-        "Nearest": Image.NEAREST,
-        "Box": Image.BOX,
-        "Bilinear": Image.BILINEAR,
-        "Hamming": Image.HAMMING,
-        "Bicubic": Image.BICUBIC,
-        "Lanczos": Image.LANCZOS,
+        "Nearest": Image.Resampling.NEAREST,
+        "Box": Image.Resampling.BOX,
+        "Bilinear": Image.Resampling.BILINEAR,
+        "Hamming": Image.Resampling.HAMMING,
+        "Bicubic": Image.Resampling.BICUBIC,
+        "Lanczos": Image.Resampling.LANCZOS,
     }
 
     def __init__(self, master):
@@ -704,8 +724,8 @@ class ImageFrame(tk.Canvas):
         self.fit_height = True
         self.title = ""
 
-        self.up_scale = Image.NEAREST
-        self.down_scale = Image.NEAREST
+        self.up_scale = Image.Resampling.NEAREST
+        self.down_scale = Image.Resampling.NEAREST
 
     def select_up_scale_algorithm(self, up):
         algo = self.algorithm.get(up)
@@ -766,9 +786,10 @@ class ImageFrame(tk.Canvas):
         if getattr(image, "is_animated", False):
             self.stop = False
             self.start = time.perf_counter()
-            duration = image.info["duration"]
-            logger.debug(f"duration = {duration}")
-            return self.display_animation(image, 0)
+            if image.info.get("duration") is not None:
+                duration = image.info["duration"]
+                logger.debug(f"duration = {duration}")
+                return self.display_animation(image, 0)
 
         if image is not None:
             div = 1 if image2 is None else 2
@@ -1115,7 +1136,6 @@ class SaltViewer(tk.Tk):
 
         logger.debug("set title")
         self.title("SaltViewer")
-
 
         # icon = self.open_svg(None, io.StringIO(Icon.svg))
         # icon = icon.resize((100, 100))
@@ -1589,6 +1609,9 @@ class SaltViewer(tk.Tk):
         logger.debug("open")
         logger.debug(image)
         logger.debug("-------------------------------------")
+        if image is None:
+            logger.debug("image is None")
+            return
         self.image.display(image)
         return image
 
@@ -1655,7 +1678,7 @@ class SaltViewer(tk.Tk):
         logger.debug(title)
 
         self.title(page + title)
-        self.statusbar.configure(text=f"{page} {title}")
+        self.statusbar.configure(text=f"{page} {self.archive.file_path}/{title}")
         self.image.title = title
 
         logger.debug(file_path)
@@ -1681,6 +1704,7 @@ class SaltViewer(tk.Tk):
             ".tiff",
             ".webv",
             ".xbm",
+            ".avif"
         ]:
             return self.open_image(file_path, data)
         # elif suffix in [".tiff"]:

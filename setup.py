@@ -12,6 +12,7 @@ requirements = [
     "cairosvg",
     "pdf2image",
     "pypdf3",
+    "pillow-avif-plugin"
 ]
 setuptools.setup(
     name="salt-viewer",
