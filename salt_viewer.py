@@ -17,7 +17,7 @@ import pillow_avif
 from PIL import Image, ImageTk
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.WARNING)
+# logger.setLevel(logging.WARNING)
 
 ch = logging.StreamHandler()
 formatter = logging.Formatter(
@@ -241,10 +241,14 @@ class DirectoryArchive(ArchiveBase):
     def open(self, file_path, data=None):
         # you cannot path data, ignored
         self.file_path = Path(file_path)
+        logger.debug("glob")
         self.file_list = list(Path(self.file_path.parent).glob("*"))
+        logger.debug("sort")
         self.sort_file_list()
+        logger.debug("filtering")
         self.filtering_file_list()
         # logger.debug(self.file_list)
+        logger.debug("get index")
         try:
             self.i = self.file_list.index(Path(file_path))
             logger.debug(f"self.i = {self.i}")
@@ -324,8 +328,9 @@ class ZipArchive(ArchiveBase):
                 file_name = Path(self.file_list[i])
                 file_byte = f.read(self.file_list[i])
 
-        logger.debug(f"i={i}")
-        logger.debug(self.file_list[i])
+            logger.debug(f"i={i}")
+            if i < len(self.file_list):
+                logger.debug(self.file_list[i])
         logger.debug(file_name)
         logger.debug("return")
         return file_name, io.BytesIO(file_byte)
@@ -1626,6 +1631,7 @@ class SaltViewer(tk.Tk):
 
     def open_archive(self, file_path, data=None):
         logger.debug("called")
+        print(file_path)
         suffix = Path(file_path).suffix.lower()
 
         if suffix == ".zip":
@@ -2134,8 +2140,9 @@ def main():
         return
 
     if args.debug:
-        logger.debug("setLevel DEBUG")
-        logger.setLevel(logging.DEBUG)
+        # logger.debug("setLevel DEBUG")
+        # logger.setLevel(logging.DEBUG)
+        pass
 
     sv_args = {
         "DefaultFitMode": args.fit_mode,
