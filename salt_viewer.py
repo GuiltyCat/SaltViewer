@@ -597,7 +597,8 @@ class TarArchive(ArchiveBase):
         fp = self.file_path if self.data is None else self.data
 
         with tarfile.open(fp) as f:
-            file_bytes = [io.BytesIO(f.extractfile(name).read()) for name in file_names]
+            file_bytes = [io.BytesIO(f.extractfile(name).read())
+                          for name in file_names]
 
         logger.debug(f"return. {len(file_names)}")
         return file_names, file_bytes
@@ -662,7 +663,8 @@ class ArchiveTree:
             file_path = archive.file_path
             next_file_path, data = archive.next()
             logger.debug(
-                f"i,file_path,next_file_path = {i},{file_path},{next_file_path}"
+                f"i,file_path,next_file_path = {
+                    i},{file_path},{next_file_path}"
             )
             if file_path == next_file_path:
                 logger.debug("go to parent")
@@ -686,7 +688,8 @@ class ArchiveTree:
             file_path = archive.file_path
             next_file_path, data = archive.prev()
             logger.debug(
-                f"i,file_path,next_file_path = {i},{file_path},{next_file_path}"
+                f"i,file_path,next_file_path = {
+                    i},{file_path},{next_file_path}"
             )
             if file_path == next_file_path:
                 logger.debug("go to parent")
@@ -930,7 +933,8 @@ class MoveFile:
         self.file_path = file_path
         self.move_to_list = move_to_list
         if len(self.move_to_list) == 0:
-            messagebox.showwarning("No place is registered", "No place is registered")
+            messagebox.showwarning(
+                "No place is registered", "No place is registered")
             return
 
         self.child = tk.Toplevel()
@@ -967,7 +971,8 @@ class MoveFile:
         to = self.move_to_list.get(key)
         if to is None:
             messagebox.showwarning(
-                "Such place is not in list.", f"Such place is not in list. {key}"
+                "Such place is not in list.", f"Such place is not in list. {
+                    key}"
             )
             self.ret = False
             return
@@ -976,7 +981,8 @@ class MoveFile:
 
         if not to.exists():
             messagebox.showwarning(
-                "Such directory does not exist.", f"Such directory does not exist. {to}"
+                "Such directory does not exist.", f"Such directory does not exist. {
+                    to}"
             )
             self.ret = False
             return
@@ -1627,7 +1633,8 @@ class SaltViewer(tk.Tk):
 
     def _load_root_dir(self, file_path):
         logger.debug("start load_root dir")
-        t = threading.Thread(target=self._load_root_dir_thread, args=(file_path,))
+        t = threading.Thread(
+            target=self._load_root_dir_thread, args=(file_path,))
         t.start()
 
     def open_archive(self, file_path, data=None):
@@ -1685,7 +1692,8 @@ class SaltViewer(tk.Tk):
         logger.debug(title)
 
         self.title(page + title)
-        self.statusbar.configure(text=f"{page} {self.archive.file_path}/{title}")
+        self.statusbar.configure(
+            text=f"{page} {self.archive.file_path}/{title}")
         self.image.title = title
 
         logger.debug(file_path)
@@ -2076,7 +2084,8 @@ def main():
         type=str,
         default=default_config_path,
     )
-    parser.add_argument("--icon", help="write icon to path", action="store_true")
+    parser.add_argument("--icon", help="write icon to path",
+                        action="store_true")
     parser.add_argument(
         "--default_config",
         help="write default configuration to path. salt-viewer --default_config >~/.svrc",
