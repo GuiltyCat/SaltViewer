@@ -56,6 +56,7 @@ class ArchiveBase:
         ".xbm",
         ".svg",
         ".avif",
+        ".webp",
     ]
     support_archive_type = [".zip", ".rar", ".7z", ".pdf"]
     support_type = support_image_type + support_archive_type
@@ -131,7 +132,7 @@ class ArchiveBase:
                 # logger.debug("cache is full.")
                 # logger.debug(f"file_path = {self.file_path}")
                 # logger.debug(f"cached page is {self.cache.keys()}")
-                time.sleep(1)
+                time.sleep(0.01)
                 continue
 
             if self.multi_read:
@@ -1710,7 +1711,8 @@ class SaltViewer(tk.Tk):
             ".tiff",
             ".webv",
             ".xbm",
-            ".avif"
+            ".avif",
+            ".webp"
         ]:
             return self.open_image(file_path, data)
         # elif suffix in [".tiff"]:
