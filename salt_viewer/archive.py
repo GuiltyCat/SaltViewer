@@ -81,6 +81,7 @@ class ArchiveBase:
         self.file_path = None
         self.file_list = []
 
+    @abstractmethod
     def open(self, file_path, data=None):
         pass
 
@@ -196,7 +197,7 @@ class ArchiveBase:
 
     def sort_file_list(self):
         self.file_list = ns.natsorted(
-            self.file_list, key=lambda x: str(x), alg=ns.PATH | ns.IGNORECASE
+            self.file_list, key=lambda x: str(x), alg=ns.ns.PATH | ns.ns.IGNORECASE
         )
 
 
