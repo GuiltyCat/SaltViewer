@@ -579,11 +579,13 @@ class TarArchive(ArchiveBase):
         logger.debug("to byte")
         if self.data is not None:
             self.data.seek(0)
-        fp = self.file_path if data is None else self.data
+        file_path = self.file_path if data is None else self.data
 
         logger.debug("open tar")
-        with tarfile.open(fp) as f:
-            self.file_list = f.getnames()
+        logger.info(f"file_path = {file_path}")
+        logger.info(f"type(file_path) = {type(file_path)}")
+        with tarfile.open(file_path) as f:
+            self.file_list = [Path(s) for s in f.getnames()]
 
         logger.debug("open tar")
         self.sort_file_list()
@@ -600,7 +602,14 @@ class TarArchive(ArchiveBase):
         fp = self.file_path if self.data is None else self.data
 
         with tarfile.open(fp) as f:
-            file_bytes = [io.BytesIO(f.extractfile(name).read()) for name in file_names]
+            file_bytes = []
+            for name in file_names:
+                file = f.extractfile(str(name))
+                if file is None:
+                    raise ValueError("file is None. file not found in tar.")
+                file_bytes.append(io.BytesIO(file.read()))
+
+            # file_bytes = [io.BytesIO(f.extractfile(name).read()) for name in file_names]
 
         logger.debug(f"return. {len(file_names)}")
         return file_names, file_bytes
@@ -615,8 +624,8 @@ class TarArchive(ArchiveBase):
         logger.debug("read file")
         if 0 <= i < len(self):
             with tarfile.open(fp) as f:
-                file_name = Path(self.file_list[i])
-                file = f.extractfile(self.file_list[i])
+                file_name = str(self.file_list[i])
+                file = f.extractfile(file_name)
                 if file is None:
                     raise ValueError("file is None. file not found in tar.")
                 file_byte = file.read()
@@ -628,7 +637,7 @@ class TarArchive(ArchiveBase):
         logger.debug(self.file_list[i])
         logger.debug(file_name)
         logger.debug("return")
-        return file_name, io.BytesIO(file_byte)
+        return Path(file_name), io.BytesIO(file_byte)
 
 
 class ArchiveTree:
