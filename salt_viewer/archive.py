@@ -92,13 +92,13 @@ class ArchiveBase:
 
     @abstractmethod
     def get_data(self, start, end):
-        pass
+        return int(), int(), [], []
 
     def in_range(self, i):
         return max(0, min(len(self), i))
 
     @abstractmethod
-    def getitem(self, i):
+    def getitem(self, i) -> tuple[Path, io.BytesIO | None]:
         return Path(), io.BytesIO()
 
     @abstractmethod
@@ -209,8 +209,6 @@ class DirectoryArchive(ArchiveBase):
         self.open(file_path, data)
         self.gen_random_list()
         self.cache = {}
-        # self.start_preload()
-        #
 
     def gen_random_list(self):
         # call after open calling
@@ -270,7 +268,7 @@ class DirectoryArchive(ArchiveBase):
             self.file_path = self.file_list[i]
             return self.file_path, None
         else:
-            return "", None
+            return Path(), None
 
     def random_select(self):
         if len(self.random_list) == 0:
@@ -304,7 +302,6 @@ class ZipArchive(ArchiveBase):
         logger.debug("zip open")
         with zipfile.ZipFile(fp) as f:
             self.file_list = f.namelist()
-            # ns.natsorted(f.namelist())
         logger.debug("to list")
         self.sort_file_list()
         self.filtering_file_list()
@@ -313,7 +310,7 @@ class ZipArchive(ArchiveBase):
 
     def getitem(self, i):
         logger.debug("__getitem__")
-        file_name = ""
+        file_name = Path()
         file_byte = None
 
         logger.debug("to byte")
@@ -323,7 +320,6 @@ class ZipArchive(ArchiveBase):
         logger.debug("open zip")
         if 0 <= i < len(self):
             with zipfile.ZipFile(fp) as f:
-                file_name = Path(self.file_list[i])
                 file_byte = f.read(self.file_list[i])
 
             logger.debug(f"i={i}")
@@ -331,6 +327,8 @@ class ZipArchive(ArchiveBase):
                 logger.debug(self.file_list[i])
         logger.debug(file_name)
         logger.debug("return")
+        if file_byte is None:
+            raise ValueError("file_byte is None. file not found in zip.")
         return file_name, io.BytesIO(file_byte)
 
 
@@ -422,7 +420,8 @@ class SevenZipArchive(ArchiveBase):
         with py7zr.SevenZipFile(fp) as f:
             file_names = [Path(name) for name in self.file_list[start:end]]
             logger.debug("read")
-            data = f.read(self.file_list[start:end])
+            file_list = [str(name) for name in self.file_list[start:end]]
+            data = f.read(file_list)
             logger.debug("name, data")
             for name, byte_data in data.items():
                 logger.debug("extract data")
