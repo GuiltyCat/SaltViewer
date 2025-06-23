@@ -4,21 +4,15 @@ import logging
 import random
 import threading
 import time
-
 import tkinter.messagebox as messagebox
 import io
-
 import natsort as ns
 
 
 logger = logging.getLogger(__name__)
-
-
 ch = logging.StreamHandler()
 formatter = logging.Formatter(
-    # "%(asctime)s:%(name)s:%(funcName)s:%(lineno)d:%(levelname)s:%(message)s"
-    # "%(funcName)s:%(lineno)d:%(levelname)s:%(message)s"
-    "%(asctime)s:%(lineno)d:%(funcName)s:%(message)s"
+    "%(asctime)s:%(name)s:%(funcName)s:%(lineno)d:%(levelname)s:%(message)s"
 )
 ch.setFormatter(formatter)
 logger.addHandler(ch)
