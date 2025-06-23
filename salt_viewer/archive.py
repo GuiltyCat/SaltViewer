@@ -1,4 +1,4 @@
-# from abc import abstractmethod
+from abc import abstractmethod
 from pathlib import Path
 import logging
 import random
@@ -85,16 +85,24 @@ class ArchiveBase:
         pass
 
     def suffix(self):
+        if self.file_path is None:
+            raise Exception("file_path is None")
         return self.file_path.suffix.lower()
 
+    @abstractmethod
     def get_data(self, start, end):
         pass
 
     def in_range(self, i):
         return max(0, min(len(self), i))
 
+    @abstractmethod
     def getitem(self, i):
-        pass
+        return "", None
+
+    @abstractmethod
+    def getitems(self, start, end):
+        return [], []
 
     def start_preload(self):
         t = threading.Thread(target=self.preload_thread)
