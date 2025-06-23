@@ -52,13 +52,13 @@ class ArchiveBase:
     def __init__(self, multi_read=False):
         self.file_path = None
         self.data = None
-        self.file_list = []
+        self.file_list: list[Path] = []
         self.i = 0
 
         self.multi_read = multi_read
         self.thread_run = False
 
-        self.images = {}
+        self.images: dict[str, bytes] = {}
 
         self.cache = {}
 
@@ -99,7 +99,7 @@ class ArchiveBase:
 
     @abstractmethod
     def getitem(self, i):
-        return "", None
+        return Path(), io.BytesIO()
 
     @abstractmethod
     def getitems(self, start, end):
@@ -365,7 +365,7 @@ class RarArchive(ArchiveBase):
 
     def getitem(self, i):
         logger.debug("__getitem__")
-        file_name = ""
+        file_name = Path()
         file_byte = None
         logger.debug("to byte")
         fp = self.file_path if self.data is None else self.data
@@ -375,6 +375,8 @@ class RarArchive(ArchiveBase):
                 file_name = Path(self.file_list[i])
                 file_byte = f.read(self.file_list[i])
 
+        if file_byte is None:
+            raise ValueError("file_byte is None. file not found in rar.")
         logger.debug(f"i={i}")
         logger.debug(self.file_list[i])
         logger.debug(file_name)
@@ -432,7 +434,7 @@ class SevenZipArchive(ArchiveBase):
     def getitem(self, i):
         logger.debug("called")
         logger.debug(f"i = {i}")
-        file_name = ""
+        file_name = Path()
         file_byte = None
         logger.debug("to byte")
         fp = self.file_path if self.data is None else io.BytesIO(self.data)
@@ -449,6 +451,9 @@ class SevenZipArchive(ArchiveBase):
                     logger.debug("extract data")
                     file_byte = data
             logger.debug("read end")
+
+        if file_byte is None:
+            raise ValueError("file_byte is None. file not found in 7z.")
 
         logger.debug(f"file_bype = {file_byte}")
         logger.debug(f"i={i}")
@@ -479,7 +484,7 @@ class PdfArchive(ArchiveBase):
         self.data = data
 
         page_num = 0
-        if self.data is not None:
+        if data is not None:
             data.seek(0)
             pdf = PyPDF3.PdfFileReader(self.data)
             page_num = pdf.getNumPages()
@@ -521,7 +526,7 @@ class PdfArchive(ArchiveBase):
 
     def getitem(self, i):
         logger.debug("called")
-        file_name = self.file_list[i]
+        file_name: Path = self.file_list[i]
         logger.debug(f"file_name = {file_name}")
 
         if len(self.images) != 0:
@@ -547,6 +552,9 @@ class PdfArchive(ArchiveBase):
             image = images[0]
         else:
             logger.debug("images is not empty.")
+
+        if image is None:
+            raise ValueError("image is None. file not found in pdf.")
 
         logger.debug("return")
         return file_name, image
@@ -599,15 +607,22 @@ class TarArchive(ArchiveBase):
 
     def getitem(self, i):
         logger.debug("__getitem__")
-        file_name = ""
+        file_name = Path()
         file_byte = None
         logger.debug("to byte")
         fp = self.file_path if self.data is None else self.data
+
         logger.debug("read file")
         if 0 <= i < len(self):
             with tarfile.open(fp) as f:
                 file_name = Path(self.file_list[i])
-                file_byte = f.extractfile(self.file_list[i]).read()
+                file = f.extractfile(self.file_list[i])
+                if file is None:
+                    raise ValueError("file is None. file not found in tar.")
+                file_byte = file.read()
+
+        if file_byte is None:
+            raise ValueError("file_byte is None. file not found in tar.")
 
         logger.debug(f"i={i}")
         logger.debug(self.file_list[i])
