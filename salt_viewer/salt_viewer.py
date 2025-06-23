@@ -10,7 +10,7 @@ import tkinter.filedialog as filedialog
 import tkinter.messagebox as messagebox
 import tkinter.ttk as ttk
 from pathlib import Path
-from archive import (
+from salt_viewer.archive import (
     ArchiveBase,
     DirectoryArchive,
     RarArchive,

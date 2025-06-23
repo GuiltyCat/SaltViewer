@@ -1,0 +1,30 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "salt-viewer"
+readme = "README.md"
+version="0.1.13"
+authors = [
+    { name = "GuiltyCat", email = ""}
+]
+url = "https://github.com/GuiltyCat/SaltViewer"
+dependencies = [
+    "natsort",
+    "pillow",
+    "send2trash",
+    "rarfile",
+    "py7zr",
+    "cairosvg",
+    "pdf2image",
+    "pypdf3",
+    "pillow-avif-plugin"
+]
+
+[project.scripts]
+salt-viewer = "salt_viewer.salt_viewer:main"
+
+
+[tool.hatch.build.targets.wheel]
+packages = ["salt_viewer"]
