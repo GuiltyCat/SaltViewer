@@ -1,5 +1,6 @@
 from abc import abstractmethod
 from pathlib import Path
+import shutil
 import logging
 import random
 import threading
@@ -7,9 +8,11 @@ import time
 import tkinter.messagebox as messagebox
 import io
 import natsort as ns
+import tempfile
 
 
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 ch = logging.StreamHandler()
 formatter = logging.Formatter(
     "%(asctime)s:%(name)s:%(funcName)s:%(lineno)d:%(levelname)s:%(message)s"
@@ -402,8 +405,11 @@ class SevenZipArchive(ArchiveBase):
             self.data.seek(0)
         fp = self.file_path if self.data is None else self.data
         logger.debug("open 7z")
+        logger.info("open 7z")
         with py7zr.SevenZipFile(fp, mode="r") as f:
             self.file_list = f.getnames()
+            logger.debug("getnames")
+            logger.debug(self.file_list)
 
         self.sort_file_list()
         self.filtering_file_list()
@@ -421,11 +427,16 @@ class SevenZipArchive(ArchiveBase):
             file_names = [Path(name) for name in self.file_list[start:end]]
             logger.debug("read")
             file_list = [str(name) for name in self.file_list[start:end]]
-            data = f.read(file_list)
-            logger.debug("name, data")
-            for name, byte_data in data.items():
-                logger.debug("extract data")
-                file_bytes.append(byte_data)
+
+            tmp_dir = tempfile.mkdtemp()
+            f.extract(path=tmp_dir, targets=file_list)
+
+            for name in file_list:
+                file_path = Path(f"{tmp_dir}/{name}")
+                with open(file_path, "rb") as f:
+                    file_bytes.append(io.BytesIO(f.read()))
+            shutil.rmtree(tmp_dir)
+
         logger.debug("read end")
 
         return file_names, file_bytes
@@ -443,12 +454,15 @@ class SevenZipArchive(ArchiveBase):
             file_name = Path(self.file_list[i])
             logger.debug(f"file_name＝ {file_name}")
             logger.debug("read")
-            with py7zr.SevenZipFile(fp) as f:
-                data = f.read([self.file_list[i]])
-                logger.debug("name, data")
-                for name, data in data.items():
-                    logger.debug("extract data")
-                    file_byte = data
+            with py7zr.SevenZipFile(fp, mode="r") as f:
+                temp_dir = tempfile.mkdtemp()
+                f.extract(path=temp_dir, targets=[self.file_list[i]])
+
+                file_name = Path(f"{temp_dir}/{self.file_list[i]}")
+                with open(file_name, "rb") as f:
+                    file_byte = io.BytesIO(f.read())
+
+                shutil.rmtree(temp_dir)
             logger.debug("read end")
 
         if file_byte is None:
