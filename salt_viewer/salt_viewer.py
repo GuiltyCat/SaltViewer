@@ -1055,7 +1055,7 @@ class SaltViewer(tk.Tk):
             logger.debug("pdf")
             archive = PdfArchive(file_path, data)
         elif suffix in [".tar", ".gz"]:
-            logger.debug("pdf")
+            logger.debug("tar or gz")
             archive = TarArchive(file_path, data)
         else:
             logger.debug("directory")
