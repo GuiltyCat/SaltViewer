@@ -16,6 +16,8 @@ from salt_viewer.archive import (
     RarArchive,
     SevenZipArchive,
     ZipArchive,
+    PdfArchive,
+    TarArchive,
 )
 import pillow_avif
 from PIL import Image, ImageTk

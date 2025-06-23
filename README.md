@@ -32,6 +32,40 @@ Support these.
 - Support nested archive
 
 
+Support Format
+--------------
+
+- .bmp
+- .dib
+- .eps
+- .gif
+- .icns
+- .ico
+- .im
+- .jpg
+- .jpeg
+- .msp
+- .pcx
+- .png
+- .ppm
+- .sgi
+- .spider
+- .tga
+- .tiff
+- .webv
+- .xbm
+- .svg
+- .avif
+- .webp
+
+- .zip
+- .rar
+- .7z
+- .pdf
+- .tar
+- .tar.gz
+
+
 How to install
 -----------
 
