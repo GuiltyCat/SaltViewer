@@ -1,5 +1,6 @@
 from abc import abstractmethod
 from pathlib import Path
+import shutil
 import logging
 import random
 import threading
@@ -7,9 +8,11 @@ import time
 import tkinter.messagebox as messagebox
 import io
 import natsort as ns
+import tempfile
 
 
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 ch = logging.StreamHandler()
 formatter = logging.Formatter(
     "%(asctime)s:%(name)s:%(funcName)s:%(lineno)d:%(levelname)s:%(message)s"
@@ -52,13 +55,13 @@ class ArchiveBase:
     def __init__(self, multi_read=False):
         self.file_path = None
         self.data = None
-        self.file_list = []
+        self.file_list: list[Path] = []
         self.i = 0
 
         self.multi_read = multi_read
         self.thread_run = False
 
-        self.images = {}
+        self.images: dict[str, bytes] = {}
 
         self.cache = {}
 
@@ -92,14 +95,14 @@ class ArchiveBase:
 
     @abstractmethod
     def get_data(self, start, end):
-        pass
+        return int(), int(), [], []
 
     def in_range(self, i):
         return max(0, min(len(self), i))
 
     @abstractmethod
-    def getitem(self, i):
-        return "", None
+    def getitem(self, i) -> tuple[Path, io.BytesIO | None]:
+        return Path(), io.BytesIO()
 
     @abstractmethod
     def getitems(self, start, end):
@@ -209,8 +212,6 @@ class DirectoryArchive(ArchiveBase):
         self.open(file_path, data)
         self.gen_random_list()
         self.cache = {}
-        # self.start_preload()
-        #
 
     def gen_random_list(self):
         # call after open calling
@@ -270,7 +271,7 @@ class DirectoryArchive(ArchiveBase):
             self.file_path = self.file_list[i]
             return self.file_path, None
         else:
-            return "", None
+            return Path(), None
 
     def random_select(self):
         if len(self.random_list) == 0:
@@ -304,7 +305,6 @@ class ZipArchive(ArchiveBase):
         logger.debug("zip open")
         with zipfile.ZipFile(fp) as f:
             self.file_list = f.namelist()
-            # ns.natsorted(f.namelist())
         logger.debug("to list")
         self.sort_file_list()
         self.filtering_file_list()
@@ -313,7 +313,7 @@ class ZipArchive(ArchiveBase):
 
     def getitem(self, i):
         logger.debug("__getitem__")
-        file_name = ""
+        file_name = Path()
         file_byte = None
 
         logger.debug("to byte")
@@ -323,7 +323,6 @@ class ZipArchive(ArchiveBase):
         logger.debug("open zip")
         if 0 <= i < len(self):
             with zipfile.ZipFile(fp) as f:
-                file_name = Path(self.file_list[i])
                 file_byte = f.read(self.file_list[i])
 
             logger.debug(f"i={i}")
@@ -331,6 +330,8 @@ class ZipArchive(ArchiveBase):
                 logger.debug(self.file_list[i])
         logger.debug(file_name)
         logger.debug("return")
+        if file_byte is None:
+            raise ValueError("file_byte is None. file not found in zip.")
         return file_name, io.BytesIO(file_byte)
 
 
@@ -365,7 +366,7 @@ class RarArchive(ArchiveBase):
 
     def getitem(self, i):
         logger.debug("__getitem__")
-        file_name = ""
+        file_name = Path()
         file_byte = None
         logger.debug("to byte")
         fp = self.file_path if self.data is None else self.data
@@ -375,6 +376,8 @@ class RarArchive(ArchiveBase):
                 file_name = Path(self.file_list[i])
                 file_byte = f.read(self.file_list[i])
 
+        if file_byte is None:
+            raise ValueError("file_byte is None. file not found in rar.")
         logger.debug(f"i={i}")
         logger.debug(self.file_list[i])
         logger.debug(file_name)
@@ -402,8 +405,11 @@ class SevenZipArchive(ArchiveBase):
             self.data.seek(0)
         fp = self.file_path if self.data is None else self.data
         logger.debug("open 7z")
+        logger.info("open 7z")
         with py7zr.SevenZipFile(fp, mode="r") as f:
             self.file_list = f.getnames()
+            logger.debug("getnames")
+            logger.debug(self.file_list)
 
         self.sort_file_list()
         self.filtering_file_list()
@@ -420,11 +426,17 @@ class SevenZipArchive(ArchiveBase):
         with py7zr.SevenZipFile(fp) as f:
             file_names = [Path(name) for name in self.file_list[start:end]]
             logger.debug("read")
-            data = f.read(self.file_list[start:end])
-            logger.debug("name, data")
-            for name, byte_data in data.items():
-                logger.debug("extract data")
-                file_bytes.append(byte_data)
+            file_list = [str(name) for name in self.file_list[start:end]]
+
+            tmp_dir = tempfile.mkdtemp()
+            f.extract(path=tmp_dir, targets=file_list)
+
+            for name in file_list:
+                file_path = Path(f"{tmp_dir}/{name}")
+                with open(file_path, "rb") as f:
+                    file_bytes.append(io.BytesIO(f.read()))
+            shutil.rmtree(tmp_dir)
+
         logger.debug("read end")
 
         return file_names, file_bytes
@@ -432,7 +444,7 @@ class SevenZipArchive(ArchiveBase):
     def getitem(self, i):
         logger.debug("called")
         logger.debug(f"i = {i}")
-        file_name = ""
+        file_name = Path()
         file_byte = None
         logger.debug("to byte")
         fp = self.file_path if self.data is None else io.BytesIO(self.data)
@@ -442,13 +454,19 @@ class SevenZipArchive(ArchiveBase):
             file_name = Path(self.file_list[i])
             logger.debug(f"file_name＝ {file_name}")
             logger.debug("read")
-            with py7zr.SevenZipFile(fp) as f:
-                data = f.read([self.file_list[i]])
-                logger.debug("name, data")
-                for name, data in data.items():
-                    logger.debug("extract data")
-                    file_byte = data
+            with py7zr.SevenZipFile(fp, mode="r") as f:
+                temp_dir = tempfile.mkdtemp()
+                f.extract(path=temp_dir, targets=[self.file_list[i]])
+
+                file_name = Path(f"{temp_dir}/{self.file_list[i]}")
+                with open(file_name, "rb") as f:
+                    file_byte = io.BytesIO(f.read())
+
+                shutil.rmtree(temp_dir)
             logger.debug("read end")
+
+        if file_byte is None:
+            raise ValueError("file_byte is None. file not found in 7z.")
 
         logger.debug(f"file_bype = {file_byte}")
         logger.debug(f"i={i}")
@@ -479,7 +497,7 @@ class PdfArchive(ArchiveBase):
         self.data = data
 
         page_num = 0
-        if self.data is not None:
+        if data is not None:
             data.seek(0)
             pdf = PyPDF3.PdfFileReader(self.data)
             page_num = pdf.getNumPages()
@@ -521,7 +539,7 @@ class PdfArchive(ArchiveBase):
 
     def getitem(self, i):
         logger.debug("called")
-        file_name = self.file_list[i]
+        file_name: Path = self.file_list[i]
         logger.debug(f"file_name = {file_name}")
 
         if len(self.images) != 0:
@@ -548,6 +566,9 @@ class PdfArchive(ArchiveBase):
         else:
             logger.debug("images is not empty.")
 
+        if image is None:
+            raise ValueError("image is None. file not found in pdf.")
+
         logger.debug("return")
         return file_name, image
 
@@ -571,11 +592,13 @@ class TarArchive(ArchiveBase):
         logger.debug("to byte")
         if self.data is not None:
             self.data.seek(0)
-        fp = self.file_path if data is None else self.data
+        file_path = self.file_path if data is None else self.data
 
         logger.debug("open tar")
-        with tarfile.open(fp) as f:
-            self.file_list = f.getnames()
+        logger.info(f"file_path = {file_path}")
+        logger.info(f"type(file_path) = {type(file_path)}")
+        with tarfile.open(file_path) as f:
+            self.file_list = [Path(s) for s in f.getnames()]
 
         logger.debug("open tar")
         self.sort_file_list()
@@ -592,28 +615,42 @@ class TarArchive(ArchiveBase):
         fp = self.file_path if self.data is None else self.data
 
         with tarfile.open(fp) as f:
-            file_bytes = [io.BytesIO(f.extractfile(name).read()) for name in file_names]
+            file_bytes = []
+            for name in file_names:
+                file = f.extractfile(str(name))
+                if file is None:
+                    raise ValueError("file is None. file not found in tar.")
+                file_bytes.append(io.BytesIO(file.read()))
+
+            # file_bytes = [io.BytesIO(f.extractfile(name).read()) for name in file_names]
 
         logger.debug(f"return. {len(file_names)}")
         return file_names, file_bytes
 
     def getitem(self, i):
         logger.debug("__getitem__")
-        file_name = ""
+        file_name = Path()
         file_byte = None
         logger.debug("to byte")
         fp = self.file_path if self.data is None else self.data
+
         logger.debug("read file")
         if 0 <= i < len(self):
             with tarfile.open(fp) as f:
-                file_name = Path(self.file_list[i])
-                file_byte = f.extractfile(self.file_list[i]).read()
+                file_name = str(self.file_list[i])
+                file = f.extractfile(file_name)
+                if file is None:
+                    raise ValueError("file is None. file not found in tar.")
+                file_byte = file.read()
+
+        if file_byte is None:
+            raise ValueError("file_byte is None. file not found in tar.")
 
         logger.debug(f"i={i}")
         logger.debug(self.file_list[i])
         logger.debug(file_name)
         logger.debug("return")
-        return file_name, io.BytesIO(file_byte)
+        return Path(file_name), io.BytesIO(file_byte)
 
 
 class ArchiveTree:
