@@ -43,10 +43,10 @@ pip install salt-viewer
 or
 
 ```
-yay -S salt-viewer
+paru -S salt-viewer
 ```
 
-I use `python3.9.3`. However it will work on old version greater than `python3.5`.
+I use `python3.13.3`. However it will work on old version greater than `python3.5`.
 
 
 This scripts use these pip modules.
