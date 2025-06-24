@@ -719,23 +719,25 @@ class SaltViewer(tk.Tk):
                 print(f"Not supported.: {name} = {key}")
 
         for name, key in self.config.setting.items():
-            if name == "DefaultFitMode":
-                self._change_image_fit_mode(key)
-            elif name == "DoublePage":
-                self.double_page = True if key == "true" else False
-            elif name == "PageOrder":
-                self.right2left = True if key == "right2left" else False
-            elif name == "UpScale":
-                self.image.select_up_scale_algorithm(key)
-            elif name == "DownScale":
-                self.image.select_down_scale_algorithm(key)
-            elif name == "DefaultFullScreen":
-                logger.debug("DefaultFullScreen")
-                self.attributes("-fullscreen", key == "True")
-            elif name == "DefaultPrevCache":
-                ArchiveBase.prev_cache = int(key)
-            elif name == "DefaultNextCache":
-                ArchiveBase.next_cache = int(key)
+            match name:
+                case "DefaultFullScreen":
+                    self.attributes("-fullscreen", key == "True")
+                case "DefaultPrevCache":
+                    ArchiveBase.prev_cache = int(key)
+                case "DefaultNextCache":
+                    ArchiveBase.next_cache = int(key)
+                case "DefaultFitMode":
+                    self._change_image_fit_mode(key)
+                case "DoublePage":
+                    self.double_page = True if key == "true" else False
+                case "PageOrder":
+                    self.right2left = True if key == "right2left" else False
+                case "UpScale":
+                    self.image.select_up_scale_algorithm(key)
+                case "DownScale":
+                    self.image.select_down_scale_algorithm(key)
+                case _:
+                    print(f"Not supported.: {name} = {key}")
 
         self.bind("<Escape>", self.reset_num)
         self.bind("[", self.reset_num)
