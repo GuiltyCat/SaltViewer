@@ -1098,29 +1098,7 @@ class SaltViewer(tk.Tk):
         logger.debug(file_path)
         suffix = file_path.suffix.lower()
         logger.debug(suffix)
-        if suffix in [
-            ".bmp",
-            ".dib",
-            ".eps",
-            ".gif",
-            ".icns",
-            ".ico",
-            ".im",
-            ".jpg",
-            ".jpeg",
-            ".msp",
-            ".pcx",
-            ".png",
-            ".ppm",
-            ".sgi",
-            ".spider",
-            ".tga",
-            ".tiff",
-            ".webv",
-            ".xbm",
-            ".avif",
-            ".webp",
-        ]:
+        if suffix in ArchiveBase.support_type:
             return self.open_image(file_path, data)
         # elif suffix in [".tiff"]:
         #    # can have multi images
