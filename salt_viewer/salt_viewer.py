@@ -265,6 +265,8 @@ class ImageFrame(tk.Canvas):
 
         # automatically adjust duration
         duration = image.info["duration"]
+        if self.master.master is None:
+            raise RuntimeError("master.master is None")
         self.master.master.title(
             f"{self.title}:{counter}/{image.n_frames}:"
             + f"fps={self.fps:.2f}/{1 / (duration / 1000):.2f}"
@@ -526,7 +528,7 @@ RandomSelect = n
             config[row[0].strip()] = row[1].strip()
 
     def load_from_args(self, key, value):
-        self.settinng[key] = value
+        self.setting[key] = value
 
     def write_default_config(self, file_path):
         if file_path.exists():
@@ -634,42 +636,66 @@ class SaltViewer(tk.Tk):
             return
 
         if len(self.root_dir) == 1:
-            self.archive.close()
+            if self.archive is not None:
+                self.archive.close()
             self.quit(None)
             return
 
-        self.archive.close()
+        if self.archive is not None:
+            self.archive.close()
         self.archive = None
         self.tree.reset()
 
         self.root_dir.remove(file_path)
         self.root_dir.cache = {}
-        next_file_path = self.root_dir.current()[0]
+
+        if self.root_dir is None:
+            logger.debug("root_dir.current() is None")
+            self.quit(None)
+            return
+        current = self.root_dir.current()
+        if current is None:
+            logger.debug("root_dir.current() is None")
+            self.quit(None)
+            return
+        if len(current) == 0:
+            logger.debug("root_dir.current() is empty")
+            self.quit(None)
+            return
+        next_file_path = current[0]
 
         self.attributes("-fullscreen", fullscreen)
         logger.debug(f"open {next_file_path}")
         self.open(next_file_path)
 
     def reload(self, event):
+        _ = event
+        if self.archive is None:
+            return
         self.archive.cache = {}
         self.current_page()
 
     def full_screen(self, event):
+        _ = event
         self.attributes("-fullscreen", not self.attributes("-fullscreen"))
 
     def fit_width(self, event):
+        _ = event
         self._change_image_fit_mode("Width")
         self.current_page()
 
     def fit_height(self, event):
+        _ = event
         self._change_image_fit_mode("Height")
         self.current_page()
 
     def fit_both(self, event):
+        _ = event
         self._change_image_fit_mode("Both")
         self.current_page()
 
     def fit_none(self, event):
+        _ = event
         self._change_image_fit_mode("None")
         self.current_page()
 
