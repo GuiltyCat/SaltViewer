@@ -238,6 +238,7 @@ class DirectoryArchive(ArchiveBase):
             logger.debug("i is not in self.random_list")
 
     def open(self, file_path, data=None):
+        _ = data
         # you cannot path data, ignored
         self.file_path = Path(file_path)
         logger.debug("glob")
@@ -304,7 +305,8 @@ class ZipArchive(ArchiveBase):
 
         logger.debug("zip open")
         with zipfile.ZipFile(fp) as f:
-            self.file_list = f.namelist()
+            # self.file_list = f.namelist()
+            self.file_list = [Path(s) for s in f.namelist()]
         logger.debug("to list")
         self.sort_file_list()
         self.filtering_file_list()
@@ -323,16 +325,19 @@ class ZipArchive(ArchiveBase):
         logger.debug("open zip")
         if 0 <= i < len(self):
             with zipfile.ZipFile(fp) as f:
-                file_byte = f.read(self.file_list[i])
+                file_name = str(self.file_list[i])
+                file_byte = f.read(file_name)
 
             logger.debug(f"i={i}")
             if i < len(self.file_list):
                 logger.debug(self.file_list[i])
+        else:
+            raise ValueError("index out of range")
         logger.debug(file_name)
         logger.debug("return")
         if file_byte is None:
             raise ValueError("file_byte is None. file not found in zip.")
-        return file_name, io.BytesIO(file_byte)
+        return Path(file_name), io.BytesIO(file_byte)
 
 
 class RarArchive(ArchiveBase):
@@ -357,7 +362,8 @@ class RarArchive(ArchiveBase):
 
         logger.debug("open rar")
         with rarfile.RarFile(fp) as f:
-            self.file_list = f.namelist()
+            # self.file_list = f.namelist()
+            self.file_list = [Path(s) for s in f.namelist()]
 
         logger.debug("open rar")
         self.sort_file_list()
@@ -373,8 +379,8 @@ class RarArchive(ArchiveBase):
         logger.debug("read file")
         if 0 <= i < len(self):
             with rarfile.RarFile(fp) as f:
-                file_name = Path(self.file_list[i])
-                file_byte = f.read(self.file_list[i])
+                file_name = str(self.file_list[i])
+                file_byte = f.read(file_name)
 
         if file_byte is None:
             raise ValueError("file_byte is None. file not found in rar.")
@@ -382,7 +388,7 @@ class RarArchive(ArchiveBase):
         logger.debug(self.file_list[i])
         logger.debug(file_name)
         logger.debug("return")
-        return file_name, io.BytesIO(file_byte)
+        return Path(file_name), io.BytesIO(file_byte)
 
 
 class SevenZipArchive(ArchiveBase):
