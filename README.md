@@ -69,32 +69,18 @@ Support Format
 How to install
 -----------
 
-
 ```
-pip install salt-viewer
-```
-
-or
-
-```
-paru -S salt-viewer
+git clone https://github.com/GuiltyCat/SaltViewer
+cd SaltViewer
+python -m venv venv
+source venv/bin/activate
+pip install .
 ```
 
 I use `python3.13.3`. However it will work on old version greater than `python3.5`.
 
 
-This scripts use these pip modules.
-
-- cairosvg
-- natsort
-- pdf2python
-- pillow
-- py7zr
-- pypdf3
-- rarfile
-- send2trash
-
-And use these packages.
+Also use these packages.
 
 - unrar(preferred), unar or bsdtar
 	- For rarfile
@@ -123,8 +109,10 @@ Document
 
 ```
 $ salt-viewer --help
-usage: salt_viewer.py [-h] [--config CONFIG] [--icon] [--default_config] [--debug] [--fullscreen] [--prev_cache PREV_CACHE] [--next_cache NEXT_CACHE] [--fit_mode FIT_MODE] [--page_order PAGE_ORDER]
-                      [--double] [--upscale UPSCALE] [--downscale DOWNSCALE]
+usage: salt_viewer.py [-h] [--config CONFIG] [--default_config] [--debug] [--fullscreen]
+                      [--prev_cache PREV_CACHE] [--next_cache NEXT_CACHE] [--fit_mode FIT_MODE]
+                      [--page_order PAGE_ORDER] [--double] [--upscale UPSCALE]
+                      [--downscale DOWNSCALE]
                       path
 
 SaltViewer. Simple (archived) image viewer (https://github.com/GuiltyCat/SaltViewer)
@@ -132,10 +120,9 @@ SaltViewer. Simple (archived) image viewer (https://github.com/GuiltyCat/SaltVie
 positional arguments:
   path                  image file or archive file
 
-optional arguments:
+options:
   -h, --help            show this help message and exit
   --config CONFIG       configuration file path. default is /home/miyamoto/.svrc
-  --icon                write icon to path
   --default_config      write default configuration to path. salt-viewer --default_config >~/.svrc
   --debug               run as debug mode. All log is printed.
   --fullscreen          run as fullscreen mode
@@ -145,12 +132,14 @@ optional arguments:
                         number of previous page cache. Default is 10
   --fit_mode FIT_MODE   fit_mode. Both, Raw, Width, Height. Default is Both
   --page_order PAGE_ORDER
-                        page order in double page mode. right2left or left2right. Default is right2left
+                        page order in double page mode. right2left or left2right. Default is
+                        right2left
   --double              Double page mode. Default is None.
-  --upscale UPSCALE     Upscale algorithm. Nearest, Box, Bilinear, Hamming, Bicubic, Lanczos. Default is Lanczos
+  --upscale UPSCALE     Upscale algorithm. Nearest, Box, Bilinear, Hamming, Bicubic, Lanczos.
+                        Default is Lanczos
   --downscale DOWNSCALE
-                        Downscale algorithm. Nearest, Box, Bilinear, Hamming, Bicubic, Lanczos. Default is Lanczos
-
+                        Downscale algorithm. Nearest, Box, Bilinear, Hamming, Bicubic, Lanczos.
+                        Default is Lanczos
 ```
 
 How to use
@@ -356,10 +345,11 @@ Icon
 You can create SaltViewer Icon by running.
 
 ```
-salt-viewer --icon icon.svg
+pip install svgwrite
+python icon.py
 ```
 
-Icon format is svg only. Suffix is ignored.
+Then `icon.svg` is generated.
 
 
 Yet Implemented
