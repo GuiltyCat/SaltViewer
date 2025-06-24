@@ -770,14 +770,23 @@ class SaltViewer(tk.Tk):
                 self.image.fit_height = False
 
     def head(self, event):
+        _ = event
+        if self.archive is None:
+            return
         self.archive.head()
         self.current_page()
 
     def tail(self, event):
+        _ = event
+        if self.archive is None:
+            return
         self.archive.tail()
         self.current_page()
 
     def next_archive(self, event):
+        if self.archive is None:
+            logger.info("Archive is None")
+            return
         if self.root_dir is None:
             logger.debug("Directory Archive")
             self.root_dir = DirectoryArchive(self.archive.file_path)
@@ -795,7 +804,12 @@ class SaltViewer(tk.Tk):
             self.tree.reset()
             self.archive.close()
             self.archive = None
-            file_path = self.root_dir.next()[0]
+            next_file = self.root_dir.next()
+            if next_file is None or len(next_file) == 0:
+                logger.debug("directory is empty")
+                self.quit(None)
+                return
+            file_path = next_file[0]
             self.open(file_path)
             return
 
@@ -805,6 +819,9 @@ class SaltViewer(tk.Tk):
         self.open(next_file_path, data)
 
     def prev_archive(self, event):
+        if self.archive is None:
+            logger.info("Archive is None")
+            return
         if self.root_dir is None:
             logger.debug("Directory Archive")
             self.root_dir = DirectoryArchive(self.archive.file_path)
@@ -822,7 +839,12 @@ class SaltViewer(tk.Tk):
             self.tree.reset()
             self.archive.close()
             self.archive = None
-            file_path = self.root_dir.prev()[0]
+            prev_file = self.root_dir.prev()
+            if prev_file is None or len(prev_file) == 0:
+                logger.debug("directory is empty")
+                self.quit(None)
+                return
+            file_path = prev_file[0]
             self.open(file_path)
             return
 
@@ -856,6 +878,10 @@ class SaltViewer(tk.Tk):
         fullscreen = self.attributes("-fullscreen")
         self.attributes("-fullscreen", False)
 
+        if self.archive is None:
+            logger.info("Archive is None")
+            return
+
         file_path = self.archive.file_path
 
         top = self.tree.top()
@@ -882,7 +908,7 @@ class SaltViewer(tk.Tk):
         # logger.debug(f"root_dir file_list = {self.root_dir.file_list}")
         file_name = Path(file_name)
         if file_name.exists() and not messagebox.askokcancel(
-            "Overwrite?", f"Overwrite File?"
+            "Overwrite?", "Overwrite File?"
         ):
             logger.debug("Cancel overwriting")
             return
@@ -897,6 +923,7 @@ class SaltViewer(tk.Tk):
         self.archive = None
 
         self.root_dir.cache = {}
+
         next_file_path, data = self.root_dir.current()
 
         if next_file_path == "":
@@ -910,6 +937,10 @@ class SaltViewer(tk.Tk):
     def trash(self, event):
         fullscreen = self.attributes("-fullscreen")
         self.attributes("-fullscreen", False)
+
+        if self.archive is None:
+            logger.info("Archive is None")
+            return
 
         file_path = self.archive.file_path
         logger.debug(f"file_path = {file_path}")
@@ -963,6 +994,9 @@ class SaltViewer(tk.Tk):
         self.right2left = not self.right2left
 
     def current_page(self):
+        if self.archive is None:
+            logger.info("Archive is None")
+            return
         file_path, data = self.archive.current()
         if file_path == "":
             logger.debug("file_path is empty")
@@ -980,6 +1014,9 @@ class SaltViewer(tk.Tk):
 
     def _open_next(self, c=1):
         logger.debug("called")
+        if self.archive is None:
+            logger.info("Archive is None")
+            return
         file_path, data = self.archive.next(c)
         if file_path == "":
             logger.debug("file_path is empty")
@@ -990,6 +1027,9 @@ class SaltViewer(tk.Tk):
     def next_page(self, event):
         logger.debug("called")
         # back to the second page then next
+        if self.archive is None:
+            logger.info("Archive is None")
+            return
         if self.double_page:
             logger.debug("double_page")
             self.archive.next()
@@ -1000,6 +1040,7 @@ class SaltViewer(tk.Tk):
         if self.double_page:
             image2 = self._open_next()
             # in order to set index as first page
+
             self.archive.prev()
         logger.debug("-------------------------------------")
         logger.debug("next_page")
@@ -1007,6 +1048,9 @@ class SaltViewer(tk.Tk):
         self.image.display(image, image2, self.right2left)
 
     def _open_prev(self, c=1):
+        if self.archive is None:
+            logger.info("Archive is None")
+            return
         file_path, data = self.archive.prev(c)
         if file_path == "":
             logger.debug("file_path is empty")
@@ -1028,6 +1072,7 @@ class SaltViewer(tk.Tk):
         self.image.display(image, image2, not self.right2left)
 
     def quit(self, event):
+        _ = event
         if self.archive is not None:
             self.archive.close()
         self.destroy()
@@ -1041,6 +1086,9 @@ class SaltViewer(tk.Tk):
         self.file_path = file_path
 
         self.archive = self.open_archive(file_path, data)
+        if self.archive is None:
+            logger.debug("archive is None")
+            return
         file_path, data = self.archive.current()
         logger.debug(f"file_path={file_path}")
         if file_path is None and data is None:
@@ -1071,24 +1119,25 @@ class SaltViewer(tk.Tk):
         print(file_path)
         suffix = Path(file_path).suffix.lower()
 
-        if suffix == ".zip":
-            logger.debug("zip")
-            archive = ZipArchive(file_path, data)
-        elif suffix == ".rar":
-            logger.debug("rar")
-            archive = RarArchive(file_path, data)
-        elif suffix == ".7z":
-            logger.debug("7z")
-            archive = SevenZipArchive(file_path, data)
-        elif suffix == ".pdf":
-            logger.debug("pdf")
-            archive = PdfArchive(file_path, data)
-        elif suffix in [".tar", ".gz"]:
-            logger.debug("tar or gz")
-            archive = TarArchive(file_path, data)
-        else:
-            logger.debug("directory")
-            archive = DirectoryArchive(file_path, data)
+        match suffix:
+            case ".zip":
+                logger.debug("zip")
+                archive = ZipArchive(file_path, data)
+            case ".rar":
+                logger.debug("rar")
+                archive = RarArchive(file_path, data)
+            case ".7z":
+                logger.debug("7z")
+                archive = SevenZipArchive(file_path, data)
+            case ".pdf":
+                logger.debug("pdf")
+                archive = PdfArchive(file_path, data)
+            case ".tar" | ".gz":
+                logger.debug("tar or gz")
+                archive = TarArchive(file_path, data)
+            case _:
+                logger.debug("directory")
+                archive = DirectoryArchive(file_path, data)
 
         # in the case of nested archive
         if self.archive is None:
@@ -1103,6 +1152,9 @@ class SaltViewer(tk.Tk):
         return archive
 
     def open_file(self, file_path, data=None):
+        if self.archive is None:
+            logger.info("Archive is None")
+            return
         if file_path is None:
             logger.debug("file_path is None")
             return
@@ -1127,36 +1179,14 @@ class SaltViewer(tk.Tk):
         logger.debug(file_path)
         suffix = file_path.suffix.lower()
         logger.debug(suffix)
-        if suffix in [
-            ".bmp",
-            ".dib",
-            ".eps",
-            ".gif",
-            ".icns",
-            ".ico",
-            ".im",
-            ".jpg",
-            ".jpeg",
-            ".msp",
-            ".pcx",
-            ".png",
-            ".ppm",
-            ".sgi",
-            ".spider",
-            ".tga",
-            ".tiff",
-            ".webv",
-            ".xbm",
-            ".avif",
-            ".webp",
-        ]:
+        if suffix in ArchiveBase.support_image_type:
             return self.open_image(file_path, data)
         # elif suffix in [".tiff"]:
         #    # can have multi images
         #    pass
         elif suffix in [".svg"]:
             return self.open_svg(file_path, data)
-        elif suffix in [".zip", ".rar", ".7z", ".pdf"]:
+        elif suffix in ArchiveBase.support_type:
             return self.open(file_path, data)
         else:
             logger.debug(f"Not supported.:{suffix}")
@@ -1187,7 +1217,9 @@ class SaltViewer(tk.Tk):
         return image
 
     def open_svg(self, image_path, data=None):
-        import cairosvg
+        if "cairosvg" not in globals():
+            global cairosvg
+            import cairosvg
 
         if data is None:
             svg = cairosvg.svg2png(url=str(image_path))
