@@ -755,18 +755,19 @@ class SaltViewer(tk.Tk):
         logger.debug(f"num = {self.num}")
 
     def _change_image_fit_mode(self, key):
-        if key == "Both":
-            self.image.fit_width = True
-            self.image.fit_height = True
-        elif key == "Width":
-            self.image.fit_width = True
-            self.image.fit_height = False
-        elif key == "Height":
-            self.image.fit_width = False
-            self.image.fit_height = True
-        elif key == "None":
-            self.image.fit_width = False
-            self.image.fit_height = False
+        match key:
+            case "Both":
+                self.image.fit_width = True
+                self.image.fit_height = True
+            case "Width":
+                self.image.fit_width = True
+                self.image.fit_height = False
+            case "Height":
+                self.image.fit_width = False
+                self.image.fit_height = True
+            case "None":
+                self.image.fit_width = False
+                self.image.fit_height = False
 
     def head(self, event):
         self.archive.head()
