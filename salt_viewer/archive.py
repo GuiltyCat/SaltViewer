@@ -49,7 +49,7 @@ class ArchiveBase:
         ".avif",
         ".webp",
     ]
-    support_archive_type = [".zip", ".rar", ".7z", ".pdf"]
+    support_archive_type = [".zip", ".rar", ".7z", ".pdf", ".gz", ".tar"]
     support_type = support_image_type + support_archive_type
 
     def __init__(self, multi_read=False):
@@ -411,7 +411,6 @@ class SevenZipArchive(ArchiveBase):
             self.data.seek(0)
         fp = self.file_path if self.data is None else self.data
         logger.debug("open 7z")
-        logger.info("open 7z")
         with py7zr.SevenZipFile(fp, mode="r") as f:
             self.file_list = f.getnames()
             logger.debug("getnames")
@@ -601,8 +600,8 @@ class TarArchive(ArchiveBase):
         file_path = self.file_path if data is None else self.data
 
         logger.debug("open tar")
-        logger.info(f"file_path = {file_path}")
-        logger.info(f"type(file_path) = {type(file_path)}")
+        logger.debug(f"file_path = {file_path}")
+        logger.debug(f"type(file_path) = {type(file_path)}")
         with tarfile.open(file_path) as f:
             self.file_list = [Path(s) for s in f.getnames()]
 
