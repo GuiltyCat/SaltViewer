@@ -5,10 +5,11 @@ build-backend = "hatchling.build"
 [project]
 name = "salt-viewer"
 readme = "README.md"
-version="0.1.13"
+version="0.1.14"
 authors = [
-    { name = "GuiltyCat", email = ""}
+    { name = "GuiltyCat", email = "37097820+GuiltyCat@users.noreply.github.com"}
 ]
+description = "Salt Viewer is a tool for viewing images in an archive or a directory."
 url = "https://github.com/GuiltyCat/SaltViewer"
 dependencies = [
     "natsort",
@@ -24,6 +25,9 @@ dependencies = [
 
 [project.scripts]
 salt-viewer = "salt_viewer.salt_viewer:main"
+
+[project.urls]
+"Homepage" = "https://github.com/GuiltyCat/SaltViewer"
 
 
 [tool.hatch.build.targets.wheel]
