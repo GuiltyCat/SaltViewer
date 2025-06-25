@@ -129,10 +129,10 @@ class ArchiveBase:
             yet = [i for i in range(start, end) if self.cache.get(i) is None]
 
             if len(yet) == 0:
-                # logger.debug("cache is full.")
-                # logger.debug(f"file_path = {self.file_path}")
-                # logger.debug(f"cached page is {self.cache.keys()}")
-                time.sleep(0.01)
+                logger.debug("cache is full.")
+                logger.debug(f"file_path = {self.file_path}")
+                logger.debug(f"cached page is {self.cache.keys()}")
+                time.sleep(0.1)
                 continue
 
             if self.multi_read:
