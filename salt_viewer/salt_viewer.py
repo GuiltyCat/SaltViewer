@@ -1116,7 +1116,7 @@ class SaltViewer(tk.Tk):
 
     def open_archive(self, file_path, data=None):
         logger.debug("called")
-        print(file_path)
+        # print(file_path)
         suffix = Path(file_path).suffix.lower()
 
         match suffix:
@@ -1179,13 +1179,13 @@ class SaltViewer(tk.Tk):
         logger.debug(file_path)
         suffix = file_path.suffix.lower()
         logger.debug(suffix)
-        if suffix in ArchiveBase.support_image_type:
+        if suffix in [".svg"]:
+            return self.open_svg(file_path, data)
+        elif suffix in ArchiveBase.support_image_type:
             return self.open_image(file_path, data)
         # elif suffix in [".tiff"]:
         #    # can have multi images
         #    pass
-        elif suffix in [".svg"]:
-            return self.open_svg(file_path, data)
         elif suffix in ArchiveBase.support_type:
             return self.open(file_path, data)
         else:
