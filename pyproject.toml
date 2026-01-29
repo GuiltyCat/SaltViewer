@@ -6,6 +6,7 @@ build-backend = "hatchling.build"
 name = "salt-viewer"
 readme = "README.md"
 version="0.1.14"
+requires-python = ">=3.13"
 authors = [
     { name = "GuiltyCat", email = "37097820+GuiltyCat@users.noreply.github.com"}
 ]
